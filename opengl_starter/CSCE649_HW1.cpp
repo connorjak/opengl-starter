@@ -212,7 +212,7 @@ static vector<RenderBall*> hits;
 
 class Ball : public RenderBall
 {
-private:
+public:
     double restitution = 0.8; //Coefficient of restitution
 
 public:
@@ -267,7 +267,7 @@ public:
         vhat[1] = vel[1] / vmag;
         vhat[2] = vel[2] / vmag;
 
-        double bounds = scale * 0.98;
+        double bounds = scale * (1-br);
         // Collision handling
         // Box walls are at <scale>m in every direction.
         if (pos[2] < -bounds)
@@ -332,22 +332,30 @@ public:
 
 
 
-
-
-
 int main(int argc, char* argv[])
 {
     int step_skip_amt = 1; //how many graphics steps per physics step
     int ball_count = 5;
+    float restitution = 0.8;
 
     if (argc >= 2) {
-        string arg1 = string(argv[1]);
-        ball_count = stoi(arg1);
+        string arg = string(argv[1]);
+        ball_count = stoi(arg);
     }
     if (argc >= 3)
     {
-        string arg2 = string(argv[2]);
-        step_skip_amt = stoi(arg2);
+        string arg1 = string(argv[2]);
+        step_skip_amt = stoi(arg1);
+    }
+    if (argc >= 4)
+    {
+        string arg = string(argv[3]);
+        hitEveryTick = stoi(arg) == 1;
+    }
+    if (argc >= 5)
+    {
+        string arg = string(argv[4]);
+        restitution = stof(arg);
     }
         
     glfwInit();
@@ -420,6 +428,7 @@ int main(int argc, char* argv[])
     for (int i = 0; i<ball_count; i++)
     {
         balls.push_back(new Ball);
+        balls.back()->restitution = restitution;
     }
 
     auto prevTime = std::chrono::high_resolution_clock::now();
