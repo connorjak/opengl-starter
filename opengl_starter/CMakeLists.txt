@@ -21,6 +21,10 @@ add_executable (opengl_starter
     "Terrain.cpp"    
 )
 
+add_executable (class_sample 
+    "ClassSample.cpp"  
+)
+
 set_property(TARGET opengl_starter PROPERTY CXX_STANDARD 17)
 # target_compile_options(opengl_starter PRIVATE /W4 /WX)
 
@@ -29,6 +33,23 @@ target_include_directories(opengl_starter PRIVATE
 )
 
 target_link_libraries(opengl_starter PRIVATE
+    glad::glad
+    glfw
+    glm::glm
+    imgui::imgui
+    lodepng
+    nlohmann_json 
+    nlohmann_json::nlohmann_json
+    spdlog::spdlog
+    spdlog::spdlog_header_only
+)
+
+
+target_include_directories(class_sample PRIVATE
+    ${CGLTF_INCLUDE_DIRS}
+)
+
+target_link_libraries(class_sample PRIVATE
     glad::glad
     glfw
     glm::glm

@@ -50,120 +50,6 @@ int selectedParticleSystemFile = -1;
 bool particleSystemEdit = false;
 int particleSystemEditIndex = 0;
 
-
-
-
-
-
-
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-const char* vertexShaderSource = "#version 330 core\n"
-"layout (location = 0) in vec3 aPos;\n"
-"layout (location = 1) in vec3 aColor;\n"
-"uniform mat4 model;\n"
-"uniform mat4 view;\n"
-"uniform mat4 projection;\n"
-"out vec3 ourColor;\n"
-"void main()\n"
-"{\n"
-"   gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
-"   ourColor = aColor;\n"
-"}\0";
-const char* fragmentShaderSource = "#version 330 core\n"
-"out vec4 FragColor;\n"
-"in vec3 ourColor;\n"
-"void main()\n"
-"{\n"
-"   FragColor = vec4(ourColor, 1.0f);\n"
-"}\n\0";
-
-
-// Box with different colors for each face
-float box[] = {
-    // positions         // colors
-     1.0f, -1.0f, -1.0f,  0.0f, 0.0f, 1.0f, // bottom
-     1.0f,  1.0f, -1.0f,  0.0f, 0.0f, 1.0f,
-    -1.0f,  1.0f, -1.0f,  0.0f, 0.0f, 1.0f,
-    -1.0f,  1.0f, -1.0f,  0.0f, 0.0f, 1.0f,
-    -1.0f, -1.0f, -1.0f,  0.0f, 0.0f, 1.0f,
-     1.0f, -1.0f, -1.0f,  0.0f, 0.0f, 1.0f,
-     1.0f,  1.0f,  1.0f,  0.0f, 1.0f, 1.0f, // top
-     1.0f, -1.0f,  1.0f,  0.0f, 1.0f, 1.0f,
-    -1.0f,  1.0f,  1.0f,  0.0f, 1.0f, 1.0f,
-     1.0f, -1.0f,  1.0f,  0.0f, 1.0f, 1.0f,
-    -1.0f, -1.0f,  1.0f,  0.0f, 1.0f, 1.0f,
-    -1.0f,  1.0f,  1.0f,  0.0f, 1.0f, 1.0f,
-     1.0f, -1.0f, -1.0f,  1.0f, 0.0f, 1.0f, // left
-    -1.0f, -1.0f,  1.0f,  1.0f, 0.0f, 1.0f,
-     1.0f, -1.0f,  1.0f,  1.0f, 0.0f, 1.0f,
-    -1.0f, -1.0f, -1.0f,  1.0f, 0.0f, 1.0f,
-    -1.0f, -1.0f,  1.0f,  1.0f, 0.0f, 1.0f,
-     1.0f, -1.0f, -1.0f,  1.0f, 0.0f, 1.0f,
-     1.0f,  1.0f,  1.0f,  0.0f, 1.0f, 0.0f, // right
-    -1.0f,  1.0f,  1.0f,  0.0f, 1.0f, 0.0f,
-    -1.0f,  1.0f, -1.0f,  0.0f, 1.0f, 0.0f,
-     1.0f,  1.0f, -1.0f,  0.0f, 1.0f, 0.0f,
-     1.0f,  1.0f,  1.0f,  0.0f, 1.0f, 0.0f,
-    -1.0f,  1.0f, -1.0f,  0.0f, 1.0f, 0.0f,
-    -1.0f,  1.0f,  1.0f,  1.0f, 0.0f, 0.0f, // back
-    -1.0f, -1.0f,  1.0f,  1.0f, 0.0f, 0.0f,
-    -1.0f,  1.0f, -1.0f,  1.0f, 0.0f, 0.0f,
-    -1.0f, -1.0f,  1.0f,  1.0f, 0.0f, 0.0f,
-    -1.0f, -1.0f, -1.0f,  1.0f, 0.0f, 0.0f,
-    -1.0f,  1.0f, -1.0f,  1.0f, 0.0f, 0.0f,
-     1.0f, -1.0f,  1.0f,  1.0f, 1.0f, 0.0f, // front
-     1.0f,  1.0f,  1.0f,  1.0f, 1.0f, 0.0f,
-     1.0f, -1.0f, -1.0f,  1.0f, 1.0f, 0.0f,
-     1.0f,  1.0f, -1.0f,  1.0f, 1.0f, 0.0f,
-     1.0f, -1.0f, -1.0f,  1.0f, 1.0f, 0.0f,
-     1.0f,  1.0f,  1.0f,  1.0f, 1.0f, 0.0f
-};
-// This is a really bad "ball" - just an octahedron
-float br = 0.05; // ball radius
-float ball[] = {
-    // positions         // colors
-     br,  0,  0,   1.0f, 1.0f, 1.0f, // triangle 1
-      0, br,  0,   1.0f, 1.0f, 1.0f,
-      0,  0, br,   1.0f, 1.0f, 1.0f,
-      0, br,  0,   1.0f, 1.0f, 1.0f, // triangle 2
-    -br,  0,  0,   1.0f, 1.0f, 1.0f,
-      0,  0, br,   1.0f, 1.0f, 1.0f,
-    -br,  0,  0,   1.0f, 1.0f, 1.0f, // triangle 3
-      0,-br,  0,   1.0f, 1.0f, 1.0f,
-      0,  0, br,   1.0f, 1.0f, 1.0f,
-      0,-br,  0,   1.0f, 1.0f, 1.0f, // triangle 4
-     br,  0,  0,   1.0f, 1.0f, 1.0f,
-      0,  0, br,   1.0f, 1.0f, 1.0f,
-     br,  0,  0,   1.0f, 1.0f, 1.0f, // triangle 5
-      0,-br,  0,   1.0f, 1.0f, 1.0f,
-      0,  0,-br,   1.0f, 1.0f, 1.0f,
-      0,-br,  0,   1.0f, 1.0f, 1.0f, // triangle 6
-    -br,  0,  0,   1.0f, 1.0f, 1.0f,
-      0,  0,-br,   1.0f, 1.0f, 1.0f,
-    -br,  0,  0,   1.0f, 1.0f, 1.0f, // triangle 7
-      0, br,  0,   1.0f, 1.0f, 1.0f,
-      0,  0,-br,   1.0f, 1.0f, 1.0f,
-      0, br,  0,   1.0f, 1.0f, 1.0f, // triangle 8
-     br,  0,  0,   1.0f, 1.0f, 1.0f,
-      0,  0,-br,   1.0f, 1.0f, 1.0f,
-};
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-
-
-
-
-
-
-
-
 void DrawSceneUI(opengl_starter::Node* node, opengl_starter::DebugDraw* debugdraw);
 
 void InitOpenGL()
@@ -211,59 +97,14 @@ int main()
     // todo - child nodes are currently allocated and deleted by no one.
     opengl_starter::Node root{ "root" };
 
-    //opengl_starter::GltfLoader::Load("assets/atelier.glb", &root, meshes);
+    opengl_starter::GltfLoader::Load("assets/atelier.glb", &root, meshes);
     opengl_starter::GltfLoader::Load("assets/cube.glb", nullptr, meshes);
     opengl_starter::GltfLoader::Load("assets/unit_cube.glb", nullptr, meshesCube);
 
-    //auto animClockRoot = opengl_starter::GltfLoader::Load("assets/anim_test_clock.glb", &root, meshes, true);
-    //auto animBallRoot = opengl_starter::GltfLoader::Load("assets/anim_test_ball.glb", &root, meshes);
-    //animClockRoot->pos = glm::vec3{ 11.0f, 0.0f, -2.5f };
-    //animBallRoot->pos = glm::vec3{ 8.0f, 0.0f, -4.5f };
-    
-
-
-
-
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    // vertex shader
-    unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-    glCompileShader(vertexShader);
-    // fragment shader
-    unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-    glCompileShader(fragmentShader);
-    // link shaders
-    unsigned int shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-    glUseProgram(shaderProgram);
-    // Set up vertex array object (VAO) and vertex buffers for box and ball
-    unsigned int boxbuffer, ballbuffer, VAO;
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-    glGenBuffers(1, &boxbuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, boxbuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(box), box, GL_STATIC_DRAW);
-    glGenBuffers(1, &ballbuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, ballbuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(ball), ball, GL_STATIC_DRAW);
-    // Declare model/view/projection matrices
-    glm::mat4 model = glm::mat4(1.0f);
-    unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
-    /* HERE IS INITIAL BALL POSITION, SET AT 0,0,0 FOR DEMO */
-    float ballposition[] = { 0.0, 0.0, 0.0 };
-    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-
-
-
+    auto animClockRoot = opengl_starter::GltfLoader::Load("assets/anim_test_clock.glb", &root, meshes, true);
+    auto animBallRoot = opengl_starter::GltfLoader::Load("assets/anim_test_ball.glb", &root, meshes);
+    animClockRoot->pos = glm::vec3{ 11.0f, 0.0f, -2.5f };
+    animBallRoot->pos = glm::vec3{ 8.0f, 0.0f, -4.5f };
 
     opengl_starter::Mesh* meshUnitCube = meshesCube[0];
 
@@ -343,8 +184,8 @@ int main()
         }
     };
 
-    //opengl_starter::TextRenderer textRenderer{ &shaderFont, &texFont, &fontRobotoRegular, frameWidth, frameHeight };
-    //opengl_starter::TextRenderer textRendererMono{ &shaderFont, &texFontMono, &fontRobotoMono, frameWidth, frameHeight };
+    opengl_starter::TextRenderer textRenderer{ &shaderFont, &texFont, &fontRobotoRegular, frameWidth, frameHeight };
+    opengl_starter::TextRenderer textRendererMono{ &shaderFont, &texFontMono, &fontRobotoMono, frameWidth, frameHeight };
 
     opengl_starter::Terrain terrain{ true, &shaderTerrainTess, &texHeight, &texGreen, &texBrown };
 
@@ -358,26 +199,26 @@ int main()
 
     opengl_starter::SSAO ssao;
     opengl_starter::Bloom bloom;
-    //opengl_starter::Grass grass{ root.FindNode("grass")->mesh };
+    opengl_starter::Grass grass{ root.FindNode("grass")->mesh };
 
-    //root.RecurseNodes([&debugDraw](opengl_starter::Node* node) {
-    //    if (node->name.find(".particles") != std::string::npos)
-    //    {
-    //        auto ps = new opengl_starter::ParticleSystem{ &debugDraw };
-    //        ps->Load("assets/ps_torch.ps", node);
-    //        ps->Start();
-    //        particleSystems.push_back(ps);
-    //    }
-    //});
+    root.RecurseNodes([&debugDraw](opengl_starter::Node* node) {
+        if (node->name.find(".particles") != std::string::npos)
+        {
+            auto ps = new opengl_starter::ParticleSystem{ &debugDraw };
+            ps->Load("assets/ps_torch.ps", node);
+            ps->Start();
+            particleSystems.push_back(ps);
+        }
+    });
 
-    //auto notesPs = new opengl_starter::ParticleSystem{ &debugDraw };
-    //notesPs->Load("assets/ps_notes.ps", root.FindNode("keyboard"));
-    //notesPs->Start();
-    //particleSystems.push_back(notesPs);
+    auto notesPs = new opengl_starter::ParticleSystem{ &debugDraw };
+    notesPs->Load("assets/ps_notes.ps", root.FindNode("keyboard"));
+    notesPs->Start();
+    particleSystems.push_back(notesPs);
 
     wnd.onResize = [&](int width, int height) {
-        //textRenderer.ResizeWindow(width, height);
-        //textRendererMono.ResizeWindow(width, height);
+        textRenderer.ResizeWindow(width, height);
+        textRendererMono.ResizeWindow(width, height);
     };
 
     wnd.onCursorPos = [&](double x, double y) {
@@ -428,7 +269,7 @@ int main()
             ps->Update(delta);
 
         imgui.Update(delta);
-        //grass.Update(delta, totalTime);
+        grass.Update(delta, totalTime);
 
         const glm::mat4 projection = glm::perspective(glm::radians(camera.Fov), static_cast<float>(frameWidth) / static_cast<float>(frameHeight), 0.1f, 100.0f);
         const glm::mat4 view = camera.GetViewMatrix();
@@ -462,10 +303,10 @@ int main()
         };
         transform(&root, glm::mat4{ 1.0f }, transform, t);
 
-        //decal.OnDecalUI();
-        //ssao.OnUI();
-        //bloom.OnUI();
-        //grass.OnUI();
+        decal.OnDecalUI();
+        ssao.OnUI();
+        bloom.OnUI();
+        grass.OnUI();
         DrawSceneUI(&root, &debugDraw);
 
         // Render
@@ -473,8 +314,8 @@ int main()
         const float clearColor2[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
         const float clearDepth = 1.0f;
 
-        //textRenderer.Reset();
-        //textRendererMono.Reset();
+        textRenderer.Reset();
+        textRendererMono.Reset();
 
         const glm::vec3 lightPos{ 15.0f, 15.0f, 15.0f };
         debugDraw.DrawCross({ 10.0f, 0.0f, 10.0f }, 2.0f);
@@ -561,86 +402,55 @@ int main()
                     renderRef(c, renderRef);
             };
             render(&root, render);
-
-
-            ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            
-            // render the box
-            glBindBuffer(GL_ARRAY_BUFFER, boxbuffer);
-            // position attribute
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-            glEnableVertexAttribArray(0);
-            // color attribute
-            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-            glEnableVertexAttribArray(1);
-            // draw the box (no model transform needed)
-            model = glm::mat4(1.0f);
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-            // render the ball
-            glBindBuffer(GL_ARRAY_BUFFER, ballbuffer);
-            // position attribute
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-            glEnableVertexAttribArray(0);
-            // color attribute
-            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-            glEnableVertexAttribArray(1);
-            // Translate ball to its position and draw
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, glm::vec3(ballposition[0], ballposition[1], ballposition[2]));
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            glDrawArrays(GL_TRIANGLES, 0, 24);
-            ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
         }
 
-        //grass.Render(projection, view);
+        grass.Render(projection, view);
 
-        //// PS
-        //{
-        //    DebugGroupScope debugScope{ "PS" };
-        //    for (auto ps : particleSystems)
-        //        ps->Render(projection, view);
-        //}
+        // PS
+        {
+            DebugGroupScope debugScope{ "PS" };
+            for (auto ps : particleSystems)
+                ps->Render(projection, view);
+        }
 
-        //// Decals
-        //{
-        //    DebugGroupScope debugScope{ "Decals" };
-        //    for (const auto& decal : decal.decals)
-        //    {
-        //        const glm::mat4 modelDecal = glm::translate(glm::mat4{ 1.0f }, decal.pos) *
-        //                                     glm::rotate(glm::mat4{ 1.0f }, glm::radians(decal.rot.y), { 0.0f, 1.0f, 0.0f }) *
-        //                                     glm::rotate(glm::mat4{ 1.0f }, glm::radians(decal.rot.z), { 0.0f, 0.0f, 1.0f }) *
-        //                                     glm::rotate(glm::mat4{ 1.0f }, glm::radians(decal.rot.x), { 1.0f, 0.0f, 0.0f }) *
-        //                                     glm::scale(glm::mat4{ 1.0f }, decal.scale);
+        // Decals
+        {
+            DebugGroupScope debugScope{ "Decals" };
+            for (const auto& decal : decal.decals)
+            {
+                const glm::mat4 modelDecal = glm::translate(glm::mat4{ 1.0f }, decal.pos) *
+                                             glm::rotate(glm::mat4{ 1.0f }, glm::radians(decal.rot.y), { 0.0f, 1.0f, 0.0f }) *
+                                             glm::rotate(glm::mat4{ 1.0f }, glm::radians(decal.rot.z), { 0.0f, 0.0f, 1.0f }) *
+                                             glm::rotate(glm::mat4{ 1.0f }, glm::radians(decal.rot.x), { 1.0f, 0.0f, 0.0f }) *
+                                             glm::scale(glm::mat4{ 1.0f }, decal.scale);
 
-        //        debugDraw.DrawBox({}, decal.scale.x, glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f }, modelDecal);
+                debugDraw.DrawBox({}, decal.scale.x, glm::vec4{ 1.0f, 1.0f, 1.0f, 1.0f }, modelDecal);
 
-        //        glDisable(GL_CULL_FACE);
-        //        glDepthMask(GL_FALSE);
-        //        glEnable(GL_BLEND);
-        //        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        //        glBindProgramPipeline(shaderDecal.pipeline);
+                glDisable(GL_CULL_FACE);
+                glDepthMask(GL_FALSE);
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                glBindProgramPipeline(shaderDecal.pipeline);
 
-        //        shaderDecal.SetMat4("model", modelDecal);
-        //        shaderDecal.SetMat4("vp", projection * view);
-        //        /*shaderDecal.SetMat4("invView", glm::inverse(view));
-        //        shaderDecal.SetMat4("invProj", glm::inverse(projection));
-        //        shaderDecal.SetMat4("invModel", glm::inverse(modelDecal));*/
-        //        shaderDecal.SetVec4("decalColor", decal.color);
-        //        glProgramUniformMatrix4fv(shaderDecal.fragProg, glGetUniformLocation(shaderDecal.fragProg, "invView"), 1, GL_FALSE, glm::value_ptr(glm::inverse(view)));
-        //        glProgramUniformMatrix4fv(shaderDecal.fragProg, glGetUniformLocation(shaderDecal.fragProg, "invProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
-        //        glProgramUniformMatrix4fv(shaderDecal.fragProg, glGetUniformLocation(shaderDecal.fragProg, "invModel"), 1, GL_FALSE, glm::value_ptr(glm::inverse(modelDecal)));
-        //        glBindTextureUnit(0, texGear.textureName);
-        //        glBindTextureUnit(1, texDepth.textureName);
-        //        glBindVertexArray(meshUnitCube->vao);
-        //        glDrawElements(GL_TRIANGLES, meshUnitCube->indexCount, GL_UNSIGNED_INT, nullptr);
-        //        glBindVertexArray(0);
-        //        glDepthMask(GL_TRUE);
-        //        glDisable(GL_BLEND);
-        //        glEnable(GL_CULL_FACE);
-        //    }
-        //}
+                shaderDecal.SetMat4("model", modelDecal);
+                shaderDecal.SetMat4("vp", projection * view);
+                /*shaderDecal.SetMat4("invView", glm::inverse(view));
+                shaderDecal.SetMat4("invProj", glm::inverse(projection));
+                shaderDecal.SetMat4("invModel", glm::inverse(modelDecal));*/
+                shaderDecal.SetVec4("decalColor", decal.color);
+                glProgramUniformMatrix4fv(shaderDecal.fragProg, glGetUniformLocation(shaderDecal.fragProg, "invView"), 1, GL_FALSE, glm::value_ptr(glm::inverse(view)));
+                glProgramUniformMatrix4fv(shaderDecal.fragProg, glGetUniformLocation(shaderDecal.fragProg, "invProj"), 1, GL_FALSE, glm::value_ptr(glm::inverse(projection)));
+                glProgramUniformMatrix4fv(shaderDecal.fragProg, glGetUniformLocation(shaderDecal.fragProg, "invModel"), 1, GL_FALSE, glm::value_ptr(glm::inverse(modelDecal)));
+                glBindTextureUnit(0, texGear.textureName);
+                glBindTextureUnit(1, texDepth.textureName);
+                glBindVertexArray(meshUnitCube->vao);
+                glDrawElements(GL_TRIANGLES, meshUnitCube->indexCount, GL_UNSIGNED_INT, nullptr);
+                glBindVertexArray(0);
+                glDepthMask(GL_TRUE);
+                glDisable(GL_BLEND);
+                glEnable(GL_CULL_FACE);
+            }
+        }
 
         {
             DebugGroupScope debugScope{ "billboard test" };
@@ -817,23 +627,23 @@ int main()
             glBindVertexArray(0);
         }
 
-        //// Render some text
-        //{
-        //    DebugGroupScope debugScope{ "text" };
-        //    const auto ipsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
+        // Render some text
+        {
+            DebugGroupScope debugScope{ "text" };
+            const auto ipsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
 
-        //    auto text1transform = glm::translate(glm::mat4{ 1.0f }, { 5.0f, 5.0f, 0.0f });
-        //    textRenderer.RenderString(fmt::format("Single line - {}", ipsum), text1transform);
+            auto text1transform = glm::translate(glm::mat4{ 1.0f }, { 5.0f, 5.0f, 0.0f });
+            textRenderer.RenderString(fmt::format("Single line - {}", ipsum), text1transform);
 
-        //    auto text2transform = glm::translate(glm::mat4{ 1.0f }, { 5.0f, 55.0f, 0.0f });
-        //    textRenderer.RenderString(fmt::format("Wrapped - {}", ipsum), text2transform, 500.0f);
+            auto text2transform = glm::translate(glm::mat4{ 1.0f }, { 5.0f, 55.0f, 0.0f });
+            textRenderer.RenderString(fmt::format("Wrapped - {}", ipsum), text2transform, 500.0f);
 
-        //    auto text3transform = glm::translate(glm::mat4{ 1.0f }, { wnd.width / 2.0f, wnd.height - 60.0f, 0.0f }) * glm::scale(glm::mat4{ 1.0f }, glm::vec3{ 0.6f });
-        //    textRendererMono.RenderString(fmt::format("Center - {}", ipsum), text3transform, 1500.0f, true);
+            auto text3transform = glm::translate(glm::mat4{ 1.0f }, { wnd.width / 2.0f, wnd.height - 60.0f, 0.0f }) * glm::scale(glm::mat4{ 1.0f }, glm::vec3{ 0.6f });
+            textRendererMono.RenderString(fmt::format("Center - {}", ipsum), text3transform, 1500.0f, true);
 
-        //    auto text4transform = glm::translate(glm::mat4{ 1.0f }, { 5.0f, 250.0f, 0.0f });
-        //    textRenderer.RenderString(fmt::format("Progress - {}", ipsum), text4transform, 700.0f, false, glm::sin(totalTime / 2.0f));
-        //}
+            auto text4transform = glm::translate(glm::mat4{ 1.0f }, { 5.0f, 250.0f, 0.0f });
+            textRenderer.RenderString(fmt::format("Progress - {}", ipsum), text4transform, 700.0f, false, glm::sin(totalTime / 2.0f));
+        }
 
         // ImGui
         {
@@ -857,7 +667,7 @@ void DrawSceneUI(opengl_starter::Node* rootNode, opengl_starter::DebugDraw* debu
 {
     static opengl_starter::Node* node_clicked = nullptr;
 
-    /*ImGui::Begin("Scene");
+    ImGui::Begin("Scene");
 
     if (ImGui::Button("Add"))
     {
@@ -867,40 +677,38 @@ void DrawSceneUI(opengl_starter::Node* rootNode, opengl_starter::DebugDraw* debu
         parent->children.push_back(n);
     }
 
-    {
-        ImGui::BeginChild("scene_tree");
+    ImGui::BeginChild("scene_tree");
 
-        auto createNode = [](opengl_starter::Node* n, bool defaultOpen, auto& createNodeRef) -> void {
-            ImGuiTreeNodeFlags flags = {};
-            if (defaultOpen)
-                flags |= ImGuiTreeNodeFlags_DefaultOpen;
-            if (node_clicked == n)
-                flags |= ImGuiTreeNodeFlags_Selected;
-            if (n->children.size() == 0)
-                flags |= ImGuiTreeNodeFlags_Leaf;
+    auto createNode = [](opengl_starter::Node* n, bool defaultOpen, auto& createNodeRef) -> void {
+        ImGuiTreeNodeFlags flags = {};
+        if (defaultOpen)
+            flags |= ImGuiTreeNodeFlags_DefaultOpen;
+        if (node_clicked == n)
+            flags |= ImGuiTreeNodeFlags_Selected;
+        if (n->children.size() == 0)
+            flags |= ImGuiTreeNodeFlags_Leaf;
 
-            if (ImGui::TreeNodeEx((void*)(intptr_t)n, flags, fmt::format("{}", n->name).c_str()))
+        if (ImGui::TreeNodeEx((void*)(intptr_t)n, flags, fmt::format("{}", n->name).c_str()))
+        {
+            if (ImGui::IsItemClicked())
+                node_clicked = n;
+
+            for (const auto child : n->children)
             {
-                if (ImGui::IsItemClicked())
-                    node_clicked = n;
-
-                for (const auto child : n->children)
-                {
-                    createNodeRef(child, false, createNodeRef);
-                }
-
-                ImGui::TreePop();
+                createNodeRef(child, false, createNodeRef);
             }
-        };
 
-        createNode(rootNode, true, createNode);
+            ImGui::TreePop();
+        }
+    };
 
-        ImGui::EndChild();
-    }
+    createNode(rootNode, true, createNode);
 
-    ImGui::End();*/
+    ImGui::EndChild();
 
-   /* ImGui::Begin("Object");
+    ImGui::End();
+
+    ImGui::Begin("Object");
     if (node_clicked)
     {
         ImGui::Spacing();
@@ -914,19 +722,19 @@ void DrawSceneUI(opengl_starter::Node* rootNode, opengl_starter::DebugDraw* debu
         ImGui::DragFloat3("Scl", glm::value_ptr(node_clicked->scale), 0.1f, 0.1f, 10.0f);
     }
 
-    ImGui::End();*/
+    ImGui::End();
 
     ImGui::Begin("Hax");
     ImGui::DragFloat("Health", &health, 0.01f, 0.0f, 1.0f);
     ImGui::DragFloat3("Light", glm::value_ptr(lightAnglesDeg), 1.0f, 0.0f, 360.0f);
-    /*ImGui::Checkbox("AnimManual", &animationManual);
+    ImGui::Checkbox("AnimManual", &animationManual);
     ImGui::DragFloat("animationPos", &animationPos, 0.01f, 0.0f, 100.0f);
     if (ImGui::Button("note burst"))
-        particleSystems[4]->Burst();*/
+        particleSystems[4]->Burst();
     ImGui::End();
 
     // Particles
-   /* ImGui::Begin("Particles");
+    ImGui::Begin("Particles");
     ImGui::SetWindowSize({ 400.0f, 700.0f }, ImGuiCond_FirstUseEver);
 
     auto stringGetter = [](void* data, int index, const char** out) -> bool {
@@ -970,5 +778,5 @@ void DrawSceneUI(opengl_starter::Node* rootNode, opengl_starter::DebugDraw* debu
         particleSystems[particleSystemEditIndex]->OnUI(particleBitmapFiles);
     }
 
-    ImGui::End();*/
+    ImGui::End();
 }
