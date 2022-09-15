@@ -21,8 +21,8 @@ add_executable (opengl_starter
     "Terrain.cpp"    
 )
 
-add_executable (class_sample 
-    "ClassSample.cpp"  
+add_executable (csce649_hw1 
+    "CSCE649_HW1.cpp"  
 )
 
 set_property(TARGET opengl_starter PROPERTY CXX_STANDARD 17)
@@ -45,11 +45,11 @@ target_link_libraries(opengl_starter PRIVATE
 )
 
 
-target_include_directories(class_sample PRIVATE
+target_include_directories(csce649_hw1 PRIVATE
     ${CGLTF_INCLUDE_DIRS}
 )
 
-target_link_libraries(class_sample PRIVATE
+target_link_libraries(csce649_hw1 PRIVATE
     glad::glad
     glfw
     glm::glm

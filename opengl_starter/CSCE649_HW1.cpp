@@ -184,6 +184,11 @@ bool randomBool()
 
 
 
+
+
+bool hitEveryTick = true;
+
+
 class RenderBall
 {
 public:
@@ -301,6 +306,8 @@ public:
             pos[0] = bounds + -(pos[0] - bounds);
             spawnHit();
         }
+        if (hitEveryTick)
+            spawnHit();
 
 
         // Accelerations
@@ -328,7 +335,21 @@ public:
 
 
 
-int main() {
+int main(int argc, char* argv[])
+{
+    int step_skip_amt = 1; //how many graphics steps per physics step
+    int ball_count = 5;
+
+    if (argc >= 2) {
+        string arg1 = string(argv[1]);
+        ball_count = stoi(arg1);
+    }
+    if (argc >= 3)
+    {
+        string arg2 = string(argv[2]);
+        step_skip_amt = stoi(arg2);
+    }
+        
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -392,8 +413,6 @@ int main() {
     ///////////////////////////////////////////
     //Options
     double timescale = 1.0;
-    int step_skip_amt = 5; //how many graphics steps per physics step
-    int ball_count = 5;
 
 
 
@@ -451,7 +470,7 @@ int main() {
             {
                 // Translate ball to its position and draw
                 model = glm::mat4(1.0f);
-                model = glm::translate(model, glm::vec3(ball->getpos(0), ball->getpos(1), ball->getpos(2)));
+                model = glm::translate(model, glm::vec3(ball->getpos(0)-0.03, ball->getpos(1), ball->getpos(2)));
                 glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
                 glDrawArrays(GL_TRIANGLES, 0, 24);
             }
@@ -465,7 +484,7 @@ int main() {
                 glEnableVertexAttribArray(1);
                 // Translate ball to its position and draw
                 model = glm::mat4(1.0f);
-                model = glm::translate(model, glm::vec3(ball->getpos(0), ball->getpos(1), ball->getpos(2)));
+                model = glm::translate(model, glm::vec3(ball->getpos(0)+0.01, ball->getpos(1), ball->getpos(2)));
                 glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
                 glDrawArrays(GL_TRIANGLES, 0, 24);
             }
