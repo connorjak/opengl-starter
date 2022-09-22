@@ -943,18 +943,21 @@ int main(int argc, char* argv[])
         {
             step_skip_itr = 0;
 
-            for (int i = 0; i < 5; i++)
+            if (irl_elapsed < 15)
             {
-                balls.push_back(new Ball);
-                balls.back()->restitution = restitution;
-                balls.back()->moon = &moon;
-                balls.back()->pos[0] = moon.pos[0];
-                balls.back()->pos[1] = moon.pos[1];
-                balls.back()->pos[2] = moon.pos[2];
-                balls.back()->vel[0] = moon.vel[0];
-                balls.back()->vel[1] = moon.vel[1];
-                balls.back()->vel[2] = moon.vel[2];
-                balls.back()->random_bump();
+                for (int i = 0; i < 10; i++)
+                {
+                    balls.push_back(new Ball);
+                    balls.back()->restitution = restitution;
+                    balls.back()->moon = &moon;
+                    balls.back()->pos[0] = moon.pos[0];
+                    balls.back()->pos[1] = moon.pos[1];
+                    balls.back()->pos[2] = moon.pos[2];
+                    balls.back()->vel[0] = moon.vel[0];
+                    balls.back()->vel[1] = moon.vel[1];
+                    balls.back()->vel[2] = moon.vel[2];
+                    balls.back()->random_bump();
+                }
             }
             for (auto ball : balls)
             {
