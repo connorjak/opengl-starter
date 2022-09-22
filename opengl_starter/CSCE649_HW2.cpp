@@ -73,9 +73,10 @@ float cameraspeed = 20.0; //degrees per second
 float camX = camradius;
 float camY = 0.0;
 float camZ = 0.0;
+
 // Allow window resizing
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-glViewport(0, 0, width, height);
+    glViewport(0, 0, width, height);
 }
 
 // Keyboard input: JKIL for camera motion (also escape to close window)
@@ -392,7 +393,8 @@ int main(int argc, char* argv[])
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Physically Based Demo", NULL, NULL);
+    //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); //MacOS specific
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Connor Jakubik HW2", NULL, NULL);
     if (window == NULL) {
         cout << "Failed to create GLFW window" << endl;
         glfwTerminate();
@@ -405,6 +407,8 @@ int main(int argc, char* argv[])
     }
     glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+
     // Enable depth buffering, backface culling
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
@@ -476,87 +480,87 @@ int main(int argc, char* argv[])
 
     // Rendering loop
     while (!glfwWindowShouldClose(window)) {
-    /*processInput(window);*/
-    glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            // Set view matrix
-            view = glm::lookAt(glm::vec3(camX, camY, camZ), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
-            glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+        /*processInput(window);*/
+        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        // Set view matrix
+        view = glm::lookAt(glm::vec3(camX, camY, camZ), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
  
-            //// render the box
-            //glBindBuffer(GL_ARRAY_BUFFER, boxbuffer);
-            //// position attribute
-            //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-            //glEnableVertexAttribArray(0);
-            //// color attribute
-            //glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-            //glEnableVertexAttribArray(1);
-            //// draw the box (no model transform needed)
-            //model = glm::mat4(1.0f);
-            //glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            //glDrawArrays(GL_TRIANGLES, 0, 36);
+        //// render the box
+        //glBindBuffer(GL_ARRAY_BUFFER, boxbuffer);
+        //// position attribute
+        //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+        //glEnableVertexAttribArray(0);
+        //// color attribute
+        //glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+        //glEnableVertexAttribArray(1);
+        //// draw the box (no model transform needed)
+        //model = glm::mat4(1.0f);
+        //glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        //glDrawArrays(GL_TRIANGLES, 0, 36);
 
-            // render the ball
-            glBindBuffer(GL_ARRAY_BUFFER, ballbuffer);
-            // position attribute
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-            glEnableVertexAttribArray(0);
+        // render the ball
+        glBindBuffer(GL_ARRAY_BUFFER, ballbuffer);
+        // position attribute 
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(0);
 
 
+        for (auto ball : balls)
+        {
+            float ballcolor[3] = { 255,255,255 };
+            // color attribute
+            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+            glEnableVertexAttribArray(1);
+            // Translate ball to its position and draw
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, glm::vec3(ball->getpos(0), ball->getpos(1), ball->getpos(2)));
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+            glDrawArrays(GL_TRIANGLES, 0, 24);
+        }
+            
+
+
+
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+        /* HERE YOU CAN ADD YOUR CODE TO COMPUTE THE NEXT SIMULATION UP TO
+            THE NEXT DISPLAY FRAME (PROBABLY WANT A FUNCTION CALL) */
+        const auto nowTime = std::chrono::high_resolution_clock::now();
+
+        auto dt = nowTime - prevTime;
+        typedef std::chrono::duration<double> double_seconds;
+        auto dt_sec = std::chrono::duration_cast<double_seconds>(dt).count();
+        //cout << "Framerate: " << 1/dt_sec << endl;
+
+        processInput(window, dt_sec);
+        irl_elapsed += dt_sec;
+
+        auto dt_sim = dt_sec * timescale;
+        accumulated_dt += dt_sim;
+        sim_elapsed += dt_sim;
+        prevTime = nowTime;
+
+        if (++step_skip_itr == step_skip_amt)
+        {
+            step_skip_itr = 0;
             for (auto ball : balls)
             {
-                float ballcolor[3] = { 255,255,255 };
-                // color attribute
-                glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-                glEnableVertexAttribArray(1);
-                // Translate ball to its position and draw
-                model = glm::mat4(1.0f);
-                model = glm::translate(model, glm::vec3(ball->getpos(0), ball->getpos(1), ball->getpos(2)));
-                glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-                glDrawArrays(GL_TRIANGLES, 0, 24);
+                ball->step(accumulated_dt);
             }
+            accumulated_dt = 0;
+        }
             
-
-
-
-    glfwSwapBuffers(window);
-    glfwPollEvents();
-            /* HERE YOU CAN ADD YOUR CODE TO COMPUTE THE NEXT SIMULATION UP TO
-               THE NEXT DISPLAY FRAME (PROBABLY WANT A FUNCTION CALL) */
-            const auto nowTime = std::chrono::high_resolution_clock::now();
-
-            auto dt = nowTime - prevTime;
-            typedef std::chrono::duration<double> double_seconds;
-            auto dt_sec = std::chrono::duration_cast<double_seconds>(dt).count();
-            //cout << "Framerate: " << 1/dt_sec << endl;
-
-            processInput(window, dt_sec);
-            irl_elapsed += dt_sec;
-
-            auto dt_sim = dt_sec * timescale;
-            accumulated_dt += dt_sim;
-            sim_elapsed += dt_sim;
-            prevTime = nowTime;
-
-            if (++step_skip_itr == step_skip_amt)
+        /*  if (irl_elapsed > 6)
+        {
+            irl_elapsed = 0;
+            sim_elapsed = 0;
+            for (auto ball : balls)
             {
-                step_skip_itr = 0;
-                for (auto ball : balls)
-                {
-                    ball->step(accumulated_dt);
-                }
-                accumulated_dt = 0;
+                ball->random_state();
             }
-            
-          /*  if (irl_elapsed > 6)
-            {
-                irl_elapsed = 0;
-                sim_elapsed = 0;
-                for (auto ball : balls)
-                {
-                    ball->random_state();
-                }
-            }*/
+        }*/
                 
     }
     // optional: de-allocate all resources once they've outlived their purpose:
