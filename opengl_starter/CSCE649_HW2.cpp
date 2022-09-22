@@ -14,26 +14,26 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
+// Copy pasted from opengl_starter project:
 #include "Common.h"
-
-
-#include "Bloom.h"
-#include "Camera.h"
-#include "DebugDraw.h"
-#include "Decal.h"
-#include "Font.h"
-#include "Framebuffer.h"
-#include "GltfLoader.h"
-#include "Grass.h"
-#include "ImGuiHandler.h"
-#include "Mesh.h"
-#include "ParticleSystem.h"
-#include "SSAO.h"
-#include "Shader.h"
-#include "Terrain.h"
-#include "TextRenderer.h"
-#include "Texture.h"
-#include "Window.h"
+// The following are unused parts of the opengl_starter project:
+//#include "Bloom.h"
+//#include "Camera.h"
+//#include "DebugDraw.h"
+//#include "Decal.h"
+//#include "Font.h"
+//#include "Framebuffer.h"
+//#include "GltfLoader.h"
+//#include "Grass.h"
+//#include "ImGuiHandler.h"
+//#include "Mesh.h"
+//#include "ParticleSystem.h"
+//#include "SSAO.h"
+//#include "Shader.h"
+//#include "Terrain.h"
+//#include "TextRenderer.h"
+//#include "Texture.h"
+//#include "Window.h"
 
 using namespace std;
 
@@ -43,8 +43,8 @@ int sgn(T val)
     return (T(0) < val) - (val < T(0));
 }
 
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+const unsigned int SCR_WIDTH = 1600;
+const unsigned int SCR_HEIGHT = 1200;
 // Hardcoded shaders so we don't need extra files
 const char* vertexShaderSource = "#version 330 core\n"
 "layout (location = 0) in vec3 aPos;\n"
@@ -194,6 +194,7 @@ bool randomBool()
     return gen();
 }
 
+constexpr double scale = 15000e3; // scale factor from sim units to render units
 
 
 class RenderBall
@@ -202,7 +203,7 @@ public:
     double pos[3] = { 0, 0, 0 }; //m
     double vel[3] = { 0, 0, 0 }; //m/s
 
-    double scale = 15000e3; // scale factor from sim units to render units
+    
 public:
     double getpos(int idx)
     {
@@ -509,7 +510,7 @@ int main(int argc, char* argv[])
                 glEnableVertexAttribArray(1);
                 // Translate ball to its position and draw
                 model = glm::mat4(1.0f);
-                model = glm::translate(model, glm::vec3(ball->getpos(0)+0.01, ball->getpos(1), ball->getpos(2)));
+                model = glm::translate(model, glm::vec3(ball->getpos(0), ball->getpos(1), ball->getpos(2)));
                 glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
                 glDrawArrays(GL_TRIANGLES, 0, 24);
             }
