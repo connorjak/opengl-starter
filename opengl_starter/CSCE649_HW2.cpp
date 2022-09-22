@@ -483,18 +483,19 @@ int main(int argc, char* argv[])
             view = glm::lookAt(glm::vec3(camX, camY, camZ), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
             glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
  
-            // render the box
-            glBindBuffer(GL_ARRAY_BUFFER, boxbuffer);
-            // position attribute
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-            glEnableVertexAttribArray(0);
-            // color attribute
-            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-            glEnableVertexAttribArray(1);
-            // draw the box (no model transform needed)
-            model = glm::mat4(1.0f);
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-            glDrawArrays(GL_TRIANGLES, 0, 36);
+            //// render the box
+            //glBindBuffer(GL_ARRAY_BUFFER, boxbuffer);
+            //// position attribute
+            //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+            //glEnableVertexAttribArray(0);
+            //// color attribute
+            //glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+            //glEnableVertexAttribArray(1);
+            //// draw the box (no model transform needed)
+            //model = glm::mat4(1.0f);
+            //glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+            //glDrawArrays(GL_TRIANGLES, 0, 36);
+
             // render the ball
             glBindBuffer(GL_ARRAY_BUFFER, ballbuffer);
             // position attribute
