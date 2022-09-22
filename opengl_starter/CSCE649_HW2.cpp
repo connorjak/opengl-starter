@@ -544,6 +544,10 @@ public:
     {
         glUniform1f(glGetUniformLocation(ID, name.c_str()), value);
     }
+    void setVec3(const std::string& name, glm::vec3 value) const
+    {
+        glUniform3fv(glGetUniformLocation(ID, name.c_str()), 1, glm::value_ptr(value));
+    }
     void setMat4(const std::string& name, glm::mat4 value) const
     {
         Better_glUniformMatrix4fv(glGetUniformLocation(ID, name.c_str()), 1, false, glm::value_ptr(value));
@@ -596,7 +600,20 @@ int main(int argc, char* argv[])
         return -1;
     }
     glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+
+    
+    static glm::mat4 projection = glm::mat4(1.0f);
+    // Set Projection matrix
+    projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+
+    //glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetFramebufferSizeCallback(window, 
+        [](GLFWwindow* window, int width, int height) 
+        {
+            glViewport(0, 0, width, height); 
+            projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 100.0f);
+        });
 
 
     // Enable depth buffering, backface culling
@@ -608,7 +625,7 @@ int main(int argc, char* argv[])
     Shader planetShader("../../../../shaders/default.vs", "../../../../shaders/default.fs");
 
     
-    defaultShader.use();
+    //defaultShader.use();
     // Set up vertex array object (VAO) and vertex buffers for box and ball
     buffer_id_t boxbuffer, ballbuffer, VAO;
     glGenVertexArrays(1, &VAO);
@@ -641,17 +658,9 @@ int main(int argc, char* argv[])
     Better_glVertexAttribPointer(vtxAttributeIdx_Color, 3, GL_FLOAT, false, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     Better_glEnableVertexAttribArray(vtxAttributeIdx_Color);
 
-    // Declare model/view/projection matrices, which are used as inputs in the vertex shader
+    // Very frequently reused matrices as shader inputs
     glm::mat4 model = glm::mat4(1.0f);
-    //matrix_id_t modelLoc = glGetUniformLocation(shaderProgram, "model");
     glm::mat4 view = glm::mat4(1.0f);
-    //matrix_id_t viewLoc = glGetUniformLocation(shaderProgram, "view");
-    glm::mat4 projection = glm::mat4(1.0f);
-    //matrix_id_t projectionLoc = glGetUniformLocation(shaderProgram, "projection");
-    // Set Projection matrix
-    projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-    defaultShader.setMat4("projection", projection);
-    planetShader.setMat4("projection", projection);
 
 
     ///////////////////////////////////////////
@@ -680,6 +689,9 @@ int main(int argc, char* argv[])
     double irl_elapsed = 0;
     double sim_elapsed = 0;
 
+    glm::vec3 lightDir = { 1, 3, 1 }; // position of lightsource
+    lightDir = -glm::normalize(lightDir);
+
     // Rendering loop
     while (!glfwWindowShouldClose(window)) {
         /*processInput(window);*/
@@ -687,20 +699,31 @@ int main(int argc, char* argv[])
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // Set view matrix
         view = glm::lookAt(glm::vec3(camX, camY, camZ), glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
-        defaultShader.setMat4("view", view);
-        planetShader.setMat4("view", view);
+        
+        
 
-        //Wireframe/not
+        // Wireframe/not
         //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         //glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-        //// render planets
-        //planetShader.use();
-        //glBindVertexArray(VAO_planet);
+        // Render planets
+        planetShader.use();
+        planetShader.setMat4("projection", projection);
+        planetShader.setMat4("view", view);
+        planetShader.setVec3("lightDir", lightDir);
+        glBindVertexArray(VAO_planet);
 
+        // Translate ball to its position and draw
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0, 0.0, 0.0));
+        defaultShader.setMat4("model", model);
+        glDrawArrays(GL_TRIANGLES, 0, 24);
 
-        // render balls 
+        // Render balls 
         defaultShader.use();
+        defaultShader.setMat4("projection", projection);
+        defaultShader.setMat4("view", view);
+        planetShader.setVec3("lightDir", lightDir);
         glBindVertexArray(VAO);
 
         for (auto ball : balls)
