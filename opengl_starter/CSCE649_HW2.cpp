@@ -85,13 +85,20 @@ const char* planetFragmentShaderSource = "#version 330 core\n"
 "}\n\0";
 
 // View parameters
-float theta = 0.0;
-float phi = 0.0;
-float camradius = 5.0;
-float cameraspeed = 20.0; //degrees per second
-float camX = camradius;
-float camY = 0.0;
-float camZ = 0.0;
+static float theta = 0.0;
+static float phi = 0.0;
+static float camradius = 6.0;
+static float cameraspeed = 40.0; //degrees per second
+static float camX = camradius;
+static float camY = 0.0;
+static float camZ = 0.0;
+
+void updateCamCoords()
+{
+    camX = camradius * cos(glm::radians(phi)) * cos(glm::radians(theta));
+    camY = camradius * cos(glm::radians(phi)) * sin(glm::radians(theta));
+    camZ = camradius * sin(glm::radians(phi));
+}
 
 // Allow window resizing
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
@@ -107,31 +114,23 @@ void processInput(GLFWwindow* window, double dt_sec) {
     if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS) {
         theta -= cameraspeed * dt_sec;
         if (theta < 0.0) theta += 360.0;
-        camX = camradius * cos(glm::radians(phi)) * cos(glm::radians(theta));
-        camY = camradius * cos(glm::radians(phi)) * sin(glm::radians(theta));
-        camZ = camradius * sin(glm::radians(phi));
+        updateCamCoords();
     }
     // L key will rotate right
     if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) {
         theta += cameraspeed * dt_sec;
         if (theta >= 360.0) theta -= 360.0;
-        camX = camradius * cos(glm::radians(phi)) * cos(glm::radians(theta));
-        camY = camradius * cos(glm::radians(phi)) * sin(glm::radians(theta));
-        camZ = camradius * sin(glm::radians(phi));
+        updateCamCoords();
     }
     // I key will rotate right
     if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) {
         if (phi < 90.0-cameraspeed* dt_sec) phi += cameraspeed * dt_sec;
-        camX = camradius * cos(glm::radians(phi)) * cos(glm::radians(theta));
-        camY = camradius * cos(glm::radians(phi)) * sin(glm::radians(theta));
-        camZ = camradius * sin(glm::radians(phi));
+        updateCamCoords();
     }
     // K key will rotate right
     if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS) {
         if (phi > -90.0+cameraspeed* dt_sec) phi -= cameraspeed * dt_sec;
-        camX = camradius * cos(glm::radians(phi)) * cos(glm::radians(theta));
-        camY = camradius * cos(glm::radians(phi)) * sin(glm::radians(theta));
-        camZ = camradius * sin(glm::radians(phi));
+        updateCamCoords();
     }
 }
 
@@ -176,65 +175,137 @@ float box[] = {
      1.0f,  1.0f,  1.0f,  1.0f, 1.0f, 0.0f
 };
 
+float poly[] = {
+    // positions         // colors
+    1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f, // left
+    -1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f,
+    1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f,
+    -1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f,
+    -1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 1.0f,
+    1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f
+};
+
 // This is a really bad "ball" - just an octahedron
 float br = 0.01; // ball radius
 float ball[] = {
     // positions         // colors
-     br,  0,  0,   1.0f, 1.0f, 1.0f, // triangle 1
-      0, br,  0,   1.0f, 1.0f, 1.0f,
-      0,  0, br,   1.0f, 1.0f, 1.0f,
-      0, br,  0,   1.0f, 1.0f, 1.0f, // triangle 2
-    -br,  0,  0,   1.0f, 1.0f, 1.0f,
-      0,  0, br,   1.0f, 1.0f, 1.0f,
-    -br,  0,  0,   1.0f, 1.0f, 1.0f, // triangle 3
-      0,-br,  0,   1.0f, 1.0f, 1.0f,
-      0,  0, br,   1.0f, 1.0f, 1.0f,
-      0,-br,  0,   1.0f, 1.0f, 1.0f, // triangle 4
-     br,  0,  0,   1.0f, 1.0f, 1.0f,
-      0,  0, br,   1.0f, 1.0f, 1.0f,
-     br,  0,  0,   1.0f, 1.0f, 1.0f, // triangle 5
-      0,-br,  0,   1.0f, 1.0f, 1.0f,
-      0,  0,-br,   1.0f, 1.0f, 1.0f,
-      0,-br,  0,   1.0f, 1.0f, 1.0f, // triangle 6
-    -br,  0,  0,   1.0f, 1.0f, 1.0f,
-      0,  0,-br,   1.0f, 1.0f, 1.0f,
-    -br,  0,  0,   1.0f, 1.0f, 1.0f, // triangle 7
-      0, br,  0,   1.0f, 1.0f, 1.0f,
-      0,  0,-br,   1.0f, 1.0f, 1.0f,
-      0, br,  0,   1.0f, 1.0f, 1.0f, // triangle 8
-     br,  0,  0,   1.0f, 1.0f, 1.0f,
-      0,  0,-br,   1.0f, 1.0f, 1.0f,
+     br,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 1
+      0, br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0, br,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0, br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 2
+    -br,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0, br,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+    -br,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 3
+      0,-br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0, br,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,-br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 4
+     br,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0, br,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+     br,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 5
+      0,-br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0,-br,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,-br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 6
+    -br,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0,-br,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+    -br,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 7
+      0, br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0,-br,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0, br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 8
+     br,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0,-br,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
 };
 
 float pr = 0.3;
 float planet[] = {
     // positions         // colors
-     pr,  0,  0,   1.0f, 1.0f, 1.0f, // triangle 1
-      0, pr,  0,   1.0f, 1.0f, 1.0f,
-      0,  0, pr,   1.0f, 1.0f, 1.0f,
-      0, pr,  0,   1.0f, 1.0f, 1.0f, // triangle 2
-    -pr,  0,  0,   1.0f, 1.0f, 1.0f,
-      0,  0, pr,   1.0f, 1.0f, 1.0f,
-    -pr,  0,  0,   1.0f, 1.0f, 1.0f, // triangle 3
-      0,-pr,  0,   1.0f, 1.0f, 1.0f,
-      0,  0, pr,   1.0f, 1.0f, 1.0f,
-      0,-pr,  0,   1.0f, 1.0f, 1.0f, // triangle 4
-     pr,  0,  0,   1.0f, 1.0f, 1.0f,
-      0,  0, pr,   1.0f, 1.0f, 1.0f,
-     pr,  0,  0,   1.0f, 1.0f, 1.0f, // triangle 5
-      0,-pr,  0,   1.0f, 1.0f, 1.0f,
-      0,  0,-pr,   1.0f, 1.0f, 1.0f,
-      0,-pr,  0,   1.0f, 1.0f, 1.0f, // triangle 6
-    -pr,  0,  0,   1.0f, 1.0f, 1.0f,
-      0,  0,-pr,   1.0f, 1.0f, 1.0f,
-    -pr,  0,  0,   1.0f, 1.0f, 1.0f, // triangle 7
-      0, pr,  0,   1.0f, 1.0f, 1.0f,
-      0,  0,-pr,   1.0f, 1.0f, 1.0f,
-      0, pr,  0,   1.0f, 1.0f, 1.0f, // triangle 8
-     pr,  0,  0,   1.0f, 1.0f, 1.0f,
-      0,  0,-pr,   1.0f, 1.0f, 1.0f,
+     pr,  0,  0,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f, // triangle 1
+      0, pr,  0,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f,
+      0,  0, pr,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f,
+      0, pr,  0,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f, // triangle 2
+    -pr,  0,  0,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f,
+      0,  0, pr,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f,
+    -pr,  0,  0,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f, // triangle 3
+      0,-pr,  0,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f,
+      0,  0, pr,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f,
+      0,-pr,  0,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f, // triangle 4
+     pr,  0,  0,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f,
+      0,  0, pr,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f,
+     pr,  0,  0,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f, // triangle 5
+      0,-pr,  0,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f,
+      0,  0,-pr,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f,
+      0,-pr,  0,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f, // triangle 6
+    -pr,  0,  0,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f,
+      0,  0,-pr,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f,
+    -pr,  0,  0,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f, // triangle 7
+      0, pr,  0,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f,
+      0,  0,-pr,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f,
+      0, pr,  0,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f, // triangle 8
+     pr,  0,  0,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f,
+      0,  0,-pr,   67.0f/255.0f, 222.0f/255.0f, 32.0f/255.0f,
 };
 
+
+using buffer_id_t = unsigned int;
+using shader_id_t = unsigned int;
+using program_id_t = unsigned int;
+using matrix_id_t = unsigned int;
+
+void CreateSphere(buffer_id_t spherePositionVbo, buffer_id_t sphereIndexVbo)
+{
+    int stacks = 20;
+    int slices = 20;
+
+    std::vector<float> positions;
+    std::vector<GLuint> indices;
+
+    // loop through stacks.
+    for (int i = 0; i <= stacks; ++i)
+    {
+
+        float V = (float)i / (float)stacks;
+        float phi = V * M_PI;
+
+        // loop through the slices.
+        for (int j = 0; j <= slices; ++j)
+        {
+
+            float U = (float)j / (float)slices;
+            float theta = U * (M_PI * 2);
+
+            // use spherical coordinates to calculate the positions.
+            float x = cos(theta) * sin(phi);
+            float y = cos(phi);
+            float z = sin(theta) * sin(phi);
+
+            positions.push_back(x);
+            positions.push_back(y);
+            positions.push_back(z);
+        }
+    }
+
+    // Calc The Index Positions
+    for (int i = 0; i < slices * stacks + slices; ++i)
+    {
+        indices.push_back(GLuint(i));
+        indices.push_back(GLuint(i + slices + 1));
+        indices.push_back(GLuint(i + slices));
+
+        indices.push_back(GLuint(i + slices + 1));
+        indices.push_back(GLuint(i));
+        indices.push_back(GLuint(i + 1));
+    }
+
+    // upload geometry to GPU.
+    glGenBuffers(1, &spherePositionVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, spherePositionVbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * positions.size(), positions.data(), GL_STATIC_DRAW);
+
+    glGenBuffers(1, &sphereIndexVbo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphereIndexVbo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * indices.size(), indices.data(), GL_STATIC_DRAW);
+
+    //sphereIndexCount = indices.size();
+}
 
 
 bool randomBool()
@@ -270,6 +341,9 @@ class Ball : public RenderBall
 {
 public:
     double restitution = 0.8; //Coefficient of restitution
+    Ball* moon = nullptr;
+    float age = 0.0f;
+    bool dead = false;
 
 public:
     void random_state()
@@ -278,13 +352,13 @@ public:
         // std::seed_seq ssq{r()};
         // and then passing it to the engine does the same
         std::default_random_engine eng{ r() };
-        std::uniform_real_distribution<double> distribution_r(6.7e6, 7.5e6);
+        std::uniform_real_distribution<double> distribution_r(8e6, 11e6);
         std::uniform_real_distribution<double> distribution_theta(0, 2 * M_PI);
         std::uniform_real_distribution<double> distribution_z(-2e6, 2e6);
         //std::uniform_real_distribution<double> distribution_vxy(5000, 9000);
-        std::uniform_real_distribution<double> distribution_vtheta(7.6e3, 10e3);
-        std::uniform_real_distribution<double> distribution_vr(-1000, 1000);
-        std::uniform_real_distribution<double> distribution_vz(-1000, 1000);
+        std::uniform_real_distribution<double> distribution_vtheta(7.6e3, 8.5e3);
+        std::uniform_real_distribution<double> distribution_vr(-300, 300);
+        std::uniform_real_distribution<double> distribution_vz(-2000, 2000);
 
         /*
           thetahat-\ /-rhat 
@@ -320,6 +394,45 @@ public:
         vel[2] = distribution_vz(eng);
     }
 
+    void random_bump()
+    {
+        std::random_device r;
+        // std::seed_seq ssq{r()};
+        // and then passing it to the engine does the same
+        std::default_random_engine eng{ r() };
+        std::uniform_real_distribution<double> distribution_r(6.7e6 * 0.3, 7.5e6 * 0.3);
+        std::uniform_real_distribution<double> distribution_theta(0, 2 * M_PI);
+        std::uniform_real_distribution<double> distribution_phi(M_PI / 4, 3*M_PI / 4);
+        std::uniform_real_distribution<double> distribution_v(1000, 5000);
+        std::uniform_real_distribution<double> distribution_vz(-500, 500);
+
+        double radius = distribution_r(eng);
+        double theta = distribution_theta(eng);
+        double phi = distribution_phi(eng);
+
+        double rhat[3];
+        rhat[0] = std::cos(theta) * std::sin(phi);
+        rhat[1] = std::sin(theta) * std::sin(phi);
+        rhat[2] = std::cos(phi);
+
+        pos[0] += radius * rhat[0];
+        pos[1] += radius * rhat[1];
+        pos[2] += radius * rhat[2];
+
+        for (int i = 0; i < 2; ++i)
+        {
+            double number = distribution_v(eng);
+            bool sign = randomBool();
+            if (sign)
+                vel[i] += number;
+            else
+                vel[i] -= number;
+        }
+
+        double number = distribution_vz(eng);
+        vel[2] += number;
+    }
+
     void step(double dt)
     {
         // Euler propagation
@@ -335,13 +448,38 @@ public:
         vhat[1] = vel[1] / vmag;
         vhat[2] = vel[2] / vmag;
 
-        
+        // Distance and direction to center
         double pmag = sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
-
         double phat[3];
         phat[0] = pos[0] / pmag;
         phat[1] = pos[1] / pmag;
         phat[2] = pos[2] / pmag;
+        
+        // Distance and direction for moon
+        double rpos[3];
+        double mpmag;
+        double mphat[3];
+        if (moon != nullptr)
+        {
+            rpos[0] = pos[0] - moon->pos[0];
+            rpos[1] = pos[1] - moon->pos[1];
+            rpos[2] = pos[2] - moon->pos[2];
+            mpmag = sqrt(rpos[0] * rpos[0] + rpos[1] * rpos[1] + rpos[2] * rpos[2]);
+            mphat[0] = rpos[0] / mpmag;
+            mphat[1] = rpos[1] / mpmag;
+            mphat[2] = rpos[2] / mpmag;
+        }
+
+
+        // Collision handling
+        if(pmag < 6.2e6 * 0.6)
+        {
+            dead = true;
+        }
+        if (moon != nullptr && mpmag < 6.2e6 * 0.3 * 0.8)
+        {
+            dead = true;
+        }
 
         //double bounds = scale * (1-br);
         //// Collision handling
@@ -402,15 +540,25 @@ public:
         vel[0] += ag_x * dt;
         vel[1] += ag_y * dt;
         vel[2] += ag_z * dt;
+
+        if (moon != nullptr)
+        {
+            // Newton gravity around moon
+            mu = 3.986004e14 * 0.3 * 0.3 * 0.3; // m^3/s^2
+            ag_x = -(mphat[0]) * mu / (mpmag * mpmag);
+            ag_y = -(mphat[1]) * mu / (mpmag * mpmag);
+            ag_z = -(mphat[2]) * mu / (mpmag * mpmag);
+            vel[0] += ag_x * dt;
+            vel[1] += ag_y * dt;
+            vel[2] += ag_z * dt;
+        }
+
+        age += dt;
     }
 
 };
 
 
-using buffer_id_t = unsigned int;
-using shader_id_t = unsigned int;
-using program_id_t = unsigned int;
-using matrix_id_t = unsigned int;
 
 
 static void Better_glVertexAttribPointer(int attributeToConfigureIdx, int numElementsPerVertex,
@@ -614,6 +762,11 @@ int main(int argc, char* argv[])
             glViewport(0, 0, width, height); 
             projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 100.0f);
         });
+    glfwSetScrollCallback(window, [](GLFWwindow* window, double xoffset, double yoffset) 
+        {
+            camradius -= yoffset/3;
+            updateCamCoords();
+        });
 
 
     // Enable depth buffering, backface culling
@@ -622,10 +775,9 @@ int main(int argc, char* argv[])
     glCullFace(GL_BACK);
 
     Shader defaultShader("../../../../shaders/default.vs", "../../../../shaders/default.fs");
-    Shader planetShader("../../../../shaders/default.vs", "../../../../shaders/default.fs");
+    Shader planetShader("../../../../shaders/default.vs", "../../../../shaders/planet.fs");
 
     
-    //defaultShader.use();
     // Set up vertex array object (VAO) and vertex buffers for box and ball
     buffer_id_t boxbuffer, ballbuffer, VAO;
     glGenVertexArrays(1, &VAO);
@@ -643,11 +795,11 @@ int main(int argc, char* argv[])
     Better_glVertexAttribPointer(vtxAttributeIdx_Color, 3, GL_FLOAT, false, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     Better_glEnableVertexAttribArray(vtxAttributeIdx_Color);
 
-    //planetShader.use();
     // Set up vertex array object (VAO) and vertex buffers for planet
-    buffer_id_t planetbuffer, VAO_planet;
+    buffer_id_t VAO_planet;
     glGenVertexArrays(1, &VAO_planet);
     glBindVertexArray(VAO_planet);
+    buffer_id_t planetbuffer;
     glGenBuffers(1, &planetbuffer);
     glBindBuffer(GL_ARRAY_BUFFER, planetbuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(planet), planet, GL_STATIC_DRAW);
@@ -657,6 +809,11 @@ int main(int argc, char* argv[])
     // color attribute
     Better_glVertexAttribPointer(vtxAttributeIdx_Color, 3, GL_FLOAT, false, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     Better_glEnableVertexAttribArray(vtxAttributeIdx_Color);
+    /* buffer_id_t planetPosBuffer;
+    buffer_id_t planetIdxBuffer;
+    glGenBuffers(1, &planetPosBuffer);
+    glGenBuffers(1, &planetIdxBuffer);
+    CreateSphere(planetPosBuffer, planetIdxBuffer);*/
 
     // Very frequently reused matrices as shader inputs
     glm::mat4 model = glm::mat4(1.0f);
@@ -668,13 +825,15 @@ int main(int argc, char* argv[])
     double timescale = 1000;
 
 
-
+    
+    Ball moon;
     vector<Ball*> balls;
-    for (int i = 0; i<ball_count; i++)
+    /*for (int i = 0; i<ball_count; i++)
     {
         balls.push_back(new Ball);
         balls.back()->restitution = restitution;
-    }
+    }*/
+
 
     auto prevTime = std::chrono::high_resolution_clock::now();
     for (auto ball : balls)
@@ -682,6 +841,7 @@ int main(int argc, char* argv[])
         ball->random_state();
     }
 
+    moon.random_state();
 
     int step_skip_itr = 0;
 
@@ -706,35 +866,56 @@ int main(int argc, char* argv[])
         //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         //glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
+
+
+        /////////////////////////////////////////
         // Render planets
         planetShader.use();
         planetShader.setMat4("projection", projection);
         planetShader.setMat4("view", view);
         planetShader.setVec3("lightDir", lightDir);
+        planetShader.setFloat("scale", 1.0f);
         glBindVertexArray(VAO_planet);
 
-        // Translate ball to its position and draw
+        // Translate planet to its position and draw
         model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(0.0, 0.0, 0.0));
-        defaultShader.setMat4("model", model);
+        planetShader.setMat4("model", model);
         glDrawArrays(GL_TRIANGLES, 0, 24);
 
+        planetShader.setFloat("scale", 0.3f);
+
+        // Translate planet to its position and draw
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(moon.getpos(0), moon.getpos(1), moon.getpos(2)));
+        planetShader.setMat4("model", model);
+        glDrawArrays(GL_TRIANGLES, 0, 24);
+        /////////////////////////////////////////
+
+
+
+
+        /////////////////////////////////////////
         // Render balls 
         defaultShader.use();
         defaultShader.setMat4("projection", projection);
         defaultShader.setMat4("view", view);
-        planetShader.setVec3("lightDir", lightDir);
+        defaultShader.setVec3("lightDir", lightDir);
+        defaultShader.setFloat("scale", 1.0f);
         glBindVertexArray(VAO);
 
         for (auto ball : balls)
         {
+            if (ball->dead)
+                continue;
             // Translate ball to its position and draw
             model = glm::mat4(1.0f);
             model = glm::translate(model, glm::vec3(ball->getpos(0), ball->getpos(1), ball->getpos(2)));
             defaultShader.setMat4("model", model);
+            defaultShader.setFloat("age", ball->age / timescale);
             glDrawArrays(GL_TRIANGLES, 0, 24);
         }
-
+        /////////////////////////////////////////
             
 
 
@@ -761,10 +942,28 @@ int main(int argc, char* argv[])
         if (++step_skip_itr == step_skip_amt)
         {
             step_skip_itr = 0;
+
+            for (int i = 0; i < 5; i++)
+            {
+                balls.push_back(new Ball);
+                balls.back()->restitution = restitution;
+                balls.back()->moon = &moon;
+                balls.back()->pos[0] = moon.pos[0];
+                balls.back()->pos[1] = moon.pos[1];
+                balls.back()->pos[2] = moon.pos[2];
+                balls.back()->vel[0] = moon.vel[0];
+                balls.back()->vel[1] = moon.vel[1];
+                balls.back()->vel[2] = moon.vel[2];
+                balls.back()->random_bump();
+            }
             for (auto ball : balls)
             {
-                ball->step(accumulated_dt);
+                if (!ball->dead)
+                    ball->step(accumulated_dt);
             }
+            moon.step(accumulated_dt);
+            
+            
             accumulated_dt = 0;
         }
             
