@@ -16,6 +16,8 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
+#include <Eigen/Dense>
+
 // Copy pasted from opengl_starter project:
 #include "Common.h"
 // The following are unused parts of the opengl_starter project:
@@ -38,6 +40,7 @@
 //#include "Window.h"
 
 using namespace std;
+using namespace Eigen;
 
 template <typename T>
 int sgn(T val)
@@ -317,12 +320,82 @@ bool randomBool()
 
 constexpr double scale = 15000e3; // scale factor from sim units to render units
 
+/*
+ 1 x-----------x 3
+    \  Front  /
+     \  Face / 
+      \     / 
+       \   /
+        \ /
+         x 2
+*/
+//
+bool BehindTriangle(Vector3d v1, Vector3d v2, Vector3d v3, Vector3d pt)
+{
+    Vector3d v_1_2 = v2 - v1;
+    Vector3d v_2_3 = v3 - v2;
+    Vector3d v_3_1 = v1 - v3;
+    Vector3d v_1_pt = pt - v1;
+    Vector3d v_2_pt = pt - v2;
+    Vector3d v_3_pt = pt - v3;
+
+    //faces out of the front side of the triangle
+    auto normal = v_1_2.cross(v_2_3).normalized();
+
+    // If dot product >= 0, pt is in front of triangle
+    if (v_1_pt.dot(normal) >= 0)
+        return false;
+
+    // Testing whether inside triangle bounds in plane of triangle
+
+    auto test1 = v_1_2.cross(v_1_pt);
+    if (test1.dot(normal) < 0)
+        return false;
+
+    auto test2 = v_2_3.cross(v_2_pt);
+    if (test2.dot(normal) < 0)
+        return false;
+
+    auto test3 = v_3_1.cross(v_3_pt);
+    if (test3.dot(normal) < 0)
+        return false;
+
+
+    return true;
+}
+
+
+static vector<Vector3d> planet_verts = 
+{ { pr, 0, 0 },
+    { 0, pr, 0 },
+    { 0, 0, pr },
+    { 0, pr, 0 },
+    { -pr, 0, 0 },
+    { 0, 0, pr },
+    { -pr, 0, 0 },
+    { 0, -pr, 0 },
+    { 0, 0, pr },
+    { 0, -pr, 0 },
+    { pr, 0, 0 },
+    { 0, 0, pr },
+    { pr, 0, 0 },
+    { 0, -pr, 0 },
+    { 0, 0, -pr },
+    { 0, -pr, 0 },
+    { -pr, 0, 0 },
+    { 0, 0, -pr },
+    { -pr, 0, 0 },
+    { 0, pr, 0 },
+    { 0, 0, -pr },
+    { 0, pr, 0 },
+    { pr, 0, 0 },
+    { 0, 0, -pr }};
 
 class RenderBall
 {
 public:
-    double pos[3] = { 0, 0, 0 }; //m
-    double vel[3] = { 0, 0, 0 }; //m/s
+    Vector3d pos = { 0, 0, 0 }; //m
+    Vector3d vel = { 0, 0, 0 }; //m/s
 
     
 public:
@@ -472,11 +545,28 @@ public:
 
 
         // Collision handling
-        if(pmag < 6.2e6 * 0.6)
+        if(pmag < 6.2e6)
         {
-            dead = true;
+            for (size_t i = 0; i < planet_verts.size(); i += 3)
+            {
+                Vector3d v1 = planet_verts[i];
+                Vector3d v2 = planet_verts[i + 1];
+                Vector3d v3 = planet_verts[i + 2];
+
+                Vector3d v_1_2 = v2 - v1;
+                Vector3d v_2_3 = v3 - v2;
+
+                auto normal = v_1_2.cross(v_2_3).normalized();
+
+                // Avoid checking tris not on the same side as the particle
+                if (pos.dot(normal) <= 0)
+                    continue;
+
+                if (BehindTriangle(v1,v2,v3,pos/scale))
+                    dead = true;
+            }
         }
-        if (moon != nullptr && mpmag < 6.2e6 * 0.3 * 0.8)
+        if (moon != nullptr && mpmag < 6.2e6 * 0.3 * 0.6)
         {
             dead = true;
         }

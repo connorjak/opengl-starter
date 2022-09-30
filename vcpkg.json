@@ -12,6 +12,7 @@
     "imgui",
     "lodepng",
     "nlohmann-json",
-    "spdlog"
+    "spdlog",
+    "eigen3"
   ]
 }
