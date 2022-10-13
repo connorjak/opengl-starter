@@ -39,6 +39,10 @@
 //#include "Texture.h"
 //#include "Window.h"
 
+/*
+"Low Poly Jet Mk.2" (https://skfb.ly/6ZrWs) by checkersai is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+*/
+
 using namespace std;
 using namespace Eigen;
 
@@ -47,6 +51,36 @@ int sgn(T val)
 {
     return (T(0) < val) - (val < T(0));
 }
+
+
+/////////////////////////////////////////
+//https://gist.github.com/podgorskiy/04a3cb36a27159e296599183215a71b0
+#include <glm/matrix.hpp>
+template <typename T, int m, int n>
+inline glm::mat<m, n, float, glm::precision::highp> E2GLM(const Eigen::Matrix<T, m, n>& em)
+{
+    glm::mat<m, n, float, glm::precision::highp> mat;
+    for (int i = 0; i < m; ++i)
+    {
+        for (int j = 0; j < n; ++j)
+        {
+            mat[j][i] = em(i, j);
+        }
+    }
+    return mat;
+}
+
+template <typename T, int m>
+inline glm::vec<m, float, glm::precision::highp> E2GLM(const Eigen::Matrix<T, m, 1>& em)
+{
+    glm::vec<m, float, glm::precision::highp> v;
+    for (int i = 0; i < m; ++i)
+    {
+        v[i] = em(i);
+    }
+    return v;
+}
+/////////////////////////////////////////
 
 const unsigned int SCR_WIDTH = 1600;
 const unsigned int SCR_HEIGHT = 1200;
@@ -194,16 +228,16 @@ float ball[] = {
     // positions         // colors
      4*br, 0, 0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 1
       0,3*br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
-      0,  0, br,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0, br,   255.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
       0,3*br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 2
     -br,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
-      0,  0, br,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0, br,   255.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
     -br,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 3
       0,-3*br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
-      0,  0, br,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0, br,   255.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
       0,-3*br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 4
      4*br, 0, 0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
-      0,  0, br,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0, br,   255.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
      4*br, 0, 0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 5
       0,-3*br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
       0,  0,-br,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
@@ -396,7 +430,7 @@ class RenderBall
 public:
     Vector3d pos = { 0, 0, 0 }; //m
     Vector3d vel = { 0, 0, 0 }; //m/s
-
+    Matrix4d T_world_body = Matrix4d::Identity();
     
 public:
     double getpos(int idx)
@@ -407,6 +441,11 @@ public:
     double getvel(int idx)
     {
         return vel[idx] / scale;
+    }
+
+    Matrix4d getrot()
+    {
+        return T_world_body;    
     }
 };
 
@@ -519,6 +558,11 @@ public:
         // Distance and direction to center
         double pmag = pos.norm();
         Vector3d phat = pos.normalized();
+
+        // interesting rotation
+        T_world_body(seq(0, 3),0) = vhat;
+        T_world_body(seq(0, 3), 1) = vhat.cross(phat);
+        T_world_body(seq(0, 3), 2) = phat;
         
         // Distance and direction for moon
         Vector3d rpos;
@@ -981,6 +1025,8 @@ int main(int argc, char* argv[])
             // Translate ball to its position and draw
             model = glm::mat4(1.0f);
             model = glm::translate(model, glm::vec3(ball->getpos(0), ball->getpos(1), ball->getpos(2)));
+            auto transf_rot = ball->getrot();
+            model = model * E2GLM(transf_rot);
             defaultShader.setMat4("model", model);
             defaultShader.setFloat("age", ball->age / timescale);
             glDrawArrays(GL_TRIANGLES, 0, 24);
@@ -1013,7 +1059,7 @@ int main(int argc, char* argv[])
         {
             step_skip_itr = 0;
 
-            if (irl_elapsed < 15)
+            if (irl_elapsed < 1)
             {
                 for (int i = 0; i < 10; i++)
                 {
