@@ -509,38 +509,26 @@ public:
     void step(double dt)
     {
         // Euler propagation
-        pos[0] += vel[0] * dt;
-        pos[1] += vel[1] * dt;
-        pos[2] += vel[2] * dt;
+        pos += vel * dt;
 
         // Gather metrics
-        double vmag = sqrt(vel[0] * vel[0] + vel[1] * vel[1] + vel[2] * vel[2]);
+        double vmag = vel.norm();
 
-        double vhat[3];
-        vhat[0] = vel[0] / vmag;
-        vhat[1] = vel[1] / vmag;
-        vhat[2] = vel[2] / vmag;
+        Vector3d vhat = vel.normalized();
 
         // Distance and direction to center
-        double pmag = sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
-        double phat[3];
-        phat[0] = pos[0] / pmag;
-        phat[1] = pos[1] / pmag;
-        phat[2] = pos[2] / pmag;
+        double pmag = pos.norm();
+        Vector3d phat = pos.normalized();
         
         // Distance and direction for moon
-        double rpos[3];
+        Vector3d rpos;
         double mpmag;
-        double mphat[3];
+        Vector3d mphat;
         if (moon != nullptr)
         {
-            rpos[0] = pos[0] - moon->pos[0];
-            rpos[1] = pos[1] - moon->pos[1];
-            rpos[2] = pos[2] - moon->pos[2];
-            mpmag = sqrt(rpos[0] * rpos[0] + rpos[1] * rpos[1] + rpos[2] * rpos[2]);
-            mphat[0] = rpos[0] / mpmag;
-            mphat[1] = rpos[1] / mpmag;
-            mphat[2] = rpos[2] / mpmag;
+            rpos = pos - moon->pos;
+            mpmag = rpos.norm();
+            mphat = rpos.normalized();
         }
 
 
@@ -624,23 +612,15 @@ public:
         // mu = G*m
         // a = mu/r^2
         double mu = 3.986004e14; // m^3/s^2
-        double ag_x = -(phat[0]) * mu / (pmag * pmag);
-        double ag_y = -(phat[1]) * mu / (pmag * pmag);
-        double ag_z = -(phat[2]) * mu / (pmag * pmag);
-        vel[0] += ag_x * dt;
-        vel[1] += ag_y * dt;
-        vel[2] += ag_z * dt;
+        Vector3d ag_ = -(phat) * mu / (pmag * pmag);
+        vel += ag_ * dt;
 
         if (moon != nullptr)
         {
             // Newton gravity around moon
             mu = 3.986004e14 * 0.3 * 0.3 * 0.3; // m^3/s^2
-            ag_x = -(mphat[0]) * mu / (mpmag * mpmag);
-            ag_y = -(mphat[1]) * mu / (mpmag * mpmag);
-            ag_z = -(mphat[2]) * mu / (mpmag * mpmag);
-            vel[0] += ag_x * dt;
-            vel[1] += ag_y * dt;
-            vel[2] += ag_z * dt;
+            ag_ = -(mphat) * mu / (mpmag * mpmag);
+            vel += ag_ * dt;
         }
 
         age += dt;
