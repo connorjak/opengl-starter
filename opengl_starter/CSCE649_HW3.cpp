@@ -458,6 +458,9 @@ public:
 
     vector<Ball*>* red_team = nullptr;
     vector<Ball*>* blue_team = nullptr;
+    vector<Ball*>* shots = nullptr;
+
+    float shot_cooldown = 0;
 
 public:
     void random_state()
@@ -560,6 +563,9 @@ public:
         // Distance and direction to center
         double pmag = pos.norm();
         Vector3d phat = pos.normalized();
+
+        if (pmag > 8e7)
+            dead = true;
 
         //// interesting rotation
         //T_world_body(seqN(0, 3), 0) = vhat;
@@ -704,6 +710,20 @@ public:
                         cumulative_accel += targeting_accel;
                     }
 
+                    // If lined up a shot, shoot
+                    if (shot_cooldown <= 0 && (r_this_other.normalized()).dot(vel.normalized()) > 0.98)
+                    {
+                        shots->push_back(new Ball);
+                        shots->back()->restitution = restitution;
+                        shots->back()->pos = pos;
+                        shots->back()->vel = vel.normalized() * 50000;
+                        /*shots->back()->red_team = red_team;
+                        shots->back()->blue_team = blue_team;*/
+                        shots->back()->shots = shots;
+                        shots->back()->team_is_blue = team_is_blue;
+                        shot_cooldown += 2000;
+                    }
+
                     // If other is behind me and velocity pointed at me
                     // (vec to enemy and negative velocity line up, and 
                     //  vec from enemy and enemy's velocity line up)
@@ -718,7 +738,9 @@ public:
                     }
                 }
 
-                
+                shot_cooldown -= dt;
+                if (shot_cooldown < 0)
+                    shot_cooldown = 0;
                 
             }
 
@@ -729,41 +751,41 @@ public:
             // Don't hit ground
             if (pos(2) < -0.5)
                 cumulative_accel += Vector3d{0,0,20};
+
+
+            // interesting rotation
+            auto x_pointing_dir = vhat;
+            auto acceleration_not_along_pointing = cumulative_accel - (cumulative_accel.dot(x_pointing_dir) * x_pointing_dir);
+            // Can only accelerate along non-pointing vector
+            auto accel_actual = acceleration_not_along_pointing.normalized() * cumulative_accel.norm();
+            //auto accel_actual = acceleration_not_along_pointing;
+
+            if (acceleration_not_along_pointing.norm() > 1.0 && accel_actual.norm() > 1.0)
+            {
+                eased_accel = eased_accel * 0.99 + accel_actual * 0.01;
+            }
+            //auto z_accel_dir = acceleration_not_along_pointing.normalized();
+            auto z_accel_dir = eased_accel.normalized();
+
+            T_world_body(seqN(0, 3), 0) = x_pointing_dir;
+            T_world_body(seqN(0, 3), 1) = z_accel_dir.cross(x_pointing_dir);
+            T_world_body(seqN(0, 3), 2) = z_accel_dir;
+            T_world_body(3, 3) = 1;
+
+            
+           vel += accel_actual * dt;
+
+            // non-physical velocity normalization
+            if (emergency_overdrive)
+            {
+                vel = vel.normalized() * 7000;
+            }
+            else
+            {
+                vel = vel.normalized() * 5000;
+            }
         }
 
-
-        // interesting rotation
-        auto x_pointing_dir = vhat;
-        auto acceleration_not_along_pointing = cumulative_accel - (cumulative_accel.dot(x_pointing_dir) * x_pointing_dir);
-        // Can only accelerate along non-pointing vector
-        auto accel_actual = acceleration_not_along_pointing.normalized() * cumulative_accel.norm();
-        //auto accel_actual = acceleration_not_along_pointing;
-
-        if (acceleration_not_along_pointing.norm() > 1.0 && accel_actual.norm() > 1.0)
-        {
-            eased_accel = eased_accel * 0.99 + accel_actual * 0.01;
-        }
-        //auto z_accel_dir = acceleration_not_along_pointing.normalized();
-        auto z_accel_dir = eased_accel.normalized();
-
-        T_world_body(seqN(0, 3), 0) = x_pointing_dir;
-        T_world_body(seqN(0, 3), 1) = z_accel_dir.cross(x_pointing_dir);
-        T_world_body(seqN(0, 3), 2) = z_accel_dir;
-        T_world_body(3, 3) = 1;
-
-
-        
-        vel += accel_actual * dt;
-
-        // non-physical velocity normalization
-        if (emergency_overdrive)
-        {
-            vel = vel.normalized() * 7000;
-        }
-        else
-        {
-            vel = vel.normalized() * 5000;
-        }
 
 
         age += dt;
@@ -995,22 +1017,33 @@ C:
 
     Shader defaultShader("../../../../shaders/default.vs", "../../../../shaders/default.fs");
     Shader planetShader("../../../../shaders/default.vs", "../../../../shaders/planet.fs");
+    Shader shotShader("../../../../shaders/default.vs", "../../../../shaders/shot.fs");
 
     
     // Set up vertex array object (VAO) and vertex buffers for box and ball
-    buffer_id_t boxbuffer, ballbuffer, VAO;
+    buffer_id_t /*boxbuffer, */shipbuffer, VAO;
     glGenVertexArrays(1, &VAO);
     glBindVertexArray(VAO);
-    glGenBuffers(1, &boxbuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, boxbuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(box), box, GL_STATIC_DRAW);
+    //glGenBuffers(1, &boxbuffer);
+    //glBindBuffer(GL_ARRAY_BUFFER, boxbuffer);
+    //glBufferData(GL_ARRAY_BUFFER, sizeof(box), box, GL_STATIC_DRAW);
+    glGenBuffers(1, &shipbuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, shipbuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(ship), ship, GL_STATIC_DRAW);
+    // position attribute 
+    Better_glVertexAttribPointer(vtxAttributeIdx_Position, 3, GL_FLOAT, false, 6 * sizeof(float), (void*)0);
+    Better_glEnableVertexAttribArray(vtxAttributeIdx_Position);
+    // color attribute
+    Better_glVertexAttribPointer(vtxAttributeIdx_Color, 3, GL_FLOAT, false, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    Better_glEnableVertexAttribArray(vtxAttributeIdx_Color);
+
+    buffer_id_t ballbuffer, VAO_shot;
+    glGenVertexArrays(1, &VAO_shot);
+    glBindVertexArray(VAO_shot);
     glGenBuffers(1, &ballbuffer);
     glBindBuffer(GL_ARRAY_BUFFER, ballbuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(ball), ball, GL_STATIC_DRAW);
-    glGenBuffers(1, &ballbuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, ballbuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(ship), ship, GL_STATIC_DRAW);
-    // position attribute 
+    // position attribute
     Better_glVertexAttribPointer(vtxAttributeIdx_Position, 3, GL_FLOAT, false, 6 * sizeof(float), (void*)0);
     Better_glEnableVertexAttribArray(vtxAttributeIdx_Position);
     // color attribute
@@ -1051,6 +1084,7 @@ C:
     Ball moon;
     vector<Ball*> red_team;
     vector<Ball*> blue_team;
+    vector<Ball*> shots;
     /*for (int i = 0; i<ball_count; i++)
     {
         balls.push_back(new Ball);
@@ -1059,14 +1093,14 @@ C:
 
 
     auto prevTime = std::chrono::high_resolution_clock::now();
-    for (auto ball : red_team)
+    /*for (auto ball : red_team)
     {
         ball->random_state();
     }
     for (auto ball : blue_team)
     {
         ball->random_state();
-    }
+    }*/
 
     moon.random_state();
 
@@ -1131,7 +1165,7 @@ C:
 
 
         /////////////////////////////////////////
-        // Render balls 
+        // Render ships 
         defaultShader.use();
         defaultShader.setMat4("projection", projection);
         defaultShader.setMat4("view", view);
@@ -1169,7 +1203,28 @@ C:
             glDrawArrays(GL_TRIANGLES, 0, 24);
         }
         /////////////////////////////////////////
-            
+        // Render shots
+        shotShader.use();
+        defaultShader.setMat4("projection", projection);
+        defaultShader.setMat4("view", view);
+        defaultShader.setVec3("lightDir", lightDir);
+        defaultShader.setFloat("scale", 0.2f);
+        glBindVertexArray(VAO_shot);
+        //glBindVertexArray(meshes[0]->vao);
+
+        for (auto ball : shots)
+        {
+            if (ball->dead)
+                continue;
+            // Translate ball to its position and draw
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, glm::vec3(ball->getpos(0), ball->getpos(1), ball->getpos(2)));
+            defaultShader.setMat4("model", model);
+            defaultShader.setFloat("age", 100);
+            //defaultShader.setFloat("age", ball->age / timescale);
+            glDrawArrays(GL_TRIANGLES, 0, 24);
+        }
+        /////////////////////////////////////////
 
 
 
@@ -1209,6 +1264,7 @@ C:
                     red_team.back()->random_bump();
                     red_team.back()->red_team = &red_team;
                     red_team.back()->blue_team = &blue_team;
+                    red_team.back()->shots = &shots;
                     red_team.back()->team_is_blue = false;
 
                     blue_team.push_back(new Ball);
@@ -1219,6 +1275,7 @@ C:
                     blue_team.back()->random_bump();
                     blue_team.back()->red_team = &red_team;
                     blue_team.back()->blue_team = &blue_team;
+                    blue_team.back()->shots = &shots;
                     blue_team.back()->team_is_blue = true;
                 }
             }
@@ -1231,12 +1288,12 @@ C:
             {
                 if (!ball->dead)
                     ball->step(accumulated_dt);
-            }/*
-            for (auto ball : balls)
+            }
+            for (auto ball : shots)
             {
                 if (!ball->dead)
                     ball->step(accumulated_dt);
-            }*/
+            }
             moon.step(accumulated_dt);
             
             
@@ -1257,8 +1314,11 @@ C:
 
     // optional: de-allocate all resources once they've outlived their purpose:
     glDeleteVertexArrays(1, &VAO);
-    glDeleteBuffers(1, &boxbuffer);
+    glDeleteVertexArrays(1, &VAO_shot);
+    glDeleteVertexArrays(1, &VAO_planet);
+    //glDeleteBuffers(1, &boxbuffer);
     glDeleteBuffers(1, &ballbuffer);
+    glDeleteBuffers(1, &shipbuffer);
     //glDeleteProgram(shaderProgram);
     glfwTerminate();
     return 0;
