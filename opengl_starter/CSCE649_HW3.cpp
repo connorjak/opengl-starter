@@ -1247,10 +1247,10 @@ C:
         {
             step_skip_itr = 0;
 
-            if (irl_elapsed < 0.3)
+            if (irl_elapsed < 0.5)
             {
                 // Spawning new balls
-                for (int i = 0; i < 2; i++)
+                for (int i = 0; i < 1; i++)
                 {
                     red_team.push_back(new Ball);
                     red_team.back()->restitution = restitution;
