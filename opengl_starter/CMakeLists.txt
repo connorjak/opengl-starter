@@ -30,6 +30,10 @@ add_executable (csce649_hw2
     "CSCE649_HW2.cpp"  
 )
 
+add_executable (csce649_hw3 
+    "CSCE649_HW3.cpp"  
+)
+
 set_property(TARGET opengl_starter PROPERTY CXX_STANDARD 17)
 # target_compile_options(opengl_starter PRIVATE /W4 /WX)
 
@@ -72,6 +76,24 @@ target_include_directories(csce649_hw2 PRIVATE
 )
 
 target_link_libraries(csce649_hw2 PRIVATE
+    glad::glad
+    glfw
+    glm::glm
+    imgui::imgui
+    lodepng
+    nlohmann_json 
+    nlohmann_json::nlohmann_json
+    spdlog::spdlog
+    spdlog::spdlog_header_only
+)
+
+
+
+target_include_directories(csce649_hw3 PRIVATE
+    ${CGLTF_INCLUDE_DIRS}
+)
+
+target_link_libraries(csce649_hw3 PRIVATE
     glad::glad
     glfw
     glm::glm
