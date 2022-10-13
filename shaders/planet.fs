@@ -10,5 +10,6 @@ void main()
     vec3 ambientLight = ambientStrength * lightColor;
 
     vec3 ambient = ambientLight * vertColor;
-	FragColor = vec4(vertColor, 1.0f) * dot(normal, -lightDir) + ambient;
+	// FragColor = vec4(vertColor, 1.0f) * dot(normal, -lightDir) + vec4(ambient, 1.0f);
+	FragColor = vec4(vertColor, 1.0f) * dot(normal, -lightDir);
 }

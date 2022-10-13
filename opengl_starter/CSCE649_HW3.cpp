@@ -188,34 +188,65 @@ float poly[] = {
     1.0f, -1.0f, -1.0f, 1.0f, 0.0f, 1.0f
 };
 
+
 // This is a really bad "ball" - just an octahedron
-float br = 0.01; // ball radius
+float br2 = 0.05; // ball radius
 float ball[] = {
+    // positions         // colors
+     br2,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 1
+      0, br2,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0, br2,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0, br2,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 2
+    -br2,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0, br2,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+    -br2,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 3
+      0,-br2,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0, br2,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,-br2,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 4
+     br2,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0, br2,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+     br2,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 5
+      0,-br2,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0,-br2,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,-br2,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 6
+    -br2,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0,-br2,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+    -br2,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 7
+      0, br2,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0,-br2,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0, br2,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 8
+     br2,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0,-br2,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+};
+
+
+float br = 0.015; // ball radius
+float ship[] = {
     // positions         // colors
      4*br, 0, 0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 1
       0,3*br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
-      0,  0, br,   255.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0, br,   0,0,0,
       0,3*br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 2
     -br,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
-      0,  0, br,   255.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0, br,   0,0,0,
     -br,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 3
       0,-3*br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
-      0,  0, br,   255.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0, br,   0,0,0,
       0,-3*br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 4
      4*br, 0, 0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
-      0,  0, br,   255.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0, br,   0,0,0,
      4*br, 0, 0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 5
       0,-3*br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
-      0,  0,-br,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0,-br,   0,0,0,
       0,-3*br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 6
     -br,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
-      0,  0,-br,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0,-br,   0,0,0,
     -br,  0,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 7
       0,3*br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
-      0,  0,-br,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0,-br,   0,0,0,
       0,3*br,  0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f, // triangle 8
      4*br, 0, 0,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
-      0,  0,-br,   107.0f/255.0f, 78.0f/255.0f, 45.0f/255.0f,
+      0,  0,-br,   0,0,0,
 };
 
 float pr = 0.3;
@@ -422,6 +453,11 @@ public:
     Ball* moon = nullptr;
     float age = 0.0f;
     bool dead = false;
+    bool team_is_blue = true;
+    Vector3d eased_accel = {0,0,0};
+
+    vector<Ball*>* red_team = nullptr;
+    vector<Ball*>* blue_team = nullptr;
 
 public:
     void random_state()
@@ -525,10 +561,11 @@ public:
         double pmag = pos.norm();
         Vector3d phat = pos.normalized();
 
-        // interesting rotation
-        T_world_body(seq(0, 3),0) = vhat;
-        T_world_body(seq(0, 3), 1) = vhat.cross(phat);
-        T_world_body(seq(0, 3), 2) = phat;
+        //// interesting rotation
+        //T_world_body(seqN(0, 3), 0) = vhat;
+        //T_world_body(seqN(0, 3), 1) = vhat.cross(phat);
+        //T_world_body(seqN(0, 3), 2) = phat;
+        //T_world_body(3, 3) = 1;
         
         // Distance and direction for moon
         Vector3d rpos;
@@ -542,69 +579,37 @@ public:
         }
 
 
-        // Collision handling
-        if(pmag < 6.2e6)
-        {
-            for (size_t i = 0; i < planet_verts.size(); i += 3)
-            {
-                Vector3d v1 = planet_verts[i];
-                Vector3d v2 = planet_verts[i + 1];
-                Vector3d v3 = planet_verts[i + 2];
-
-                Vector3d v_1_2 = v2 - v1;
-                Vector3d v_2_3 = v3 - v2;
-
-                auto normal = v_1_2.cross(v_2_3).normalized();
-
-                // Avoid checking tris not on the same side as the particle
-                if (pos.dot(normal) <= 0)
-                    continue;
-
-                if (BehindTriangle(v1,v2,v3,pos/scale))
-                    dead = true;
-            }
-        }
-        if (moon != nullptr && mpmag < 6.2e6 * 0.3 * 0.6)
-        {
-            dead = true;
-        }
-
-        //double bounds = scale * (1-br);
         //// Collision handling
-        //// Box walls are at <scale>m in every direction.
-        //if (pos[2] < -bounds)
+        //if(pmag < 6.2e6)
         //{
-        //    vel[2] = -vel[2] * restitution;
-        //    pos[2] = -bounds + -(pos[2] + bounds);
+        //    for (size_t i = 0; i < planet_verts.size(); i += 3)
+        //    {
+        //        Vector3d v1 = planet_verts[i];
+        //        Vector3d v2 = planet_verts[i + 1];
+        //        Vector3d v3 = planet_verts[i + 2];
+
+        //        Vector3d v_1_2 = v2 - v1;
+        //        Vector3d v_2_3 = v3 - v2;
+
+        //        auto normal = v_1_2.cross(v_2_3).normalized();
+
+        //        // Avoid checking tris not on the same side as the particle
+        //        if (pos.dot(normal) <= 0)
+        //            continue;
+
+        //        if (BehindTriangle(v1,v2,v3,pos/scale))
+        //            dead = true;
+        //    }
         //}
-        //else if (pos[2] > bounds)
+        //if (moon != nullptr && mpmag < 6.2e6 * 0.3 * 0.6)
         //{
-        //    vel[2] = -vel[2] * restitution;
-        //    pos[2] = bounds + -(pos[2] - bounds);
-        //}
-        //if (pos[1] < -bounds)
-        //{
-        //    vel[1] = -vel[1] * restitution;
-        //    pos[1] = -bounds + -(pos[1] + bounds);
-        //}
-        //else if (pos[1] > bounds)
-        //{
-        //    vel[1] = -vel[1] * restitution;
-        //    pos[1] = bounds + -(pos[1] - bounds);
-        //}
-        //if (pos[0] < -bounds)
-        //{
-        //    vel[0] = -vel[0] * restitution;
-        //    pos[0] = -bounds + -(pos[0] + bounds);
-        //}
-        //else if (pos[0] > bounds)
-        //{
-        //    vel[0] = -vel[0] * restitution;
-        //    pos[0] = bounds + -(pos[0] - bounds);
+        //    dead = true;
         //}
 
+        
         // Accelerations
        
+        Vector3d cumulative_accel = { 0, 0, 0 };
 
         //// Air drag
         //double density = 0.1; //kg/m3
@@ -614,24 +619,152 @@ public:
         //vel[1] -= vhat[1] * drag_mag * dt;
         //vel[2] -= vhat[2] * drag_mag * dt;
 
-        //// z- Gravity
-        //vel[2] -= dt * 9.81;
 
         // Newton gravity around center
         // f = G*m*M/r^2
         // mu = G*m
         // a = mu/r^2
-        double mu = 3.986004e14; // m^3/s^2
+        /* double mu = 3.986004e14; // m^3/s^2
         Vector3d ag_ = -(phat) * mu / (pmag * pmag);
-        vel += ag_ * dt;
+        cumulative_accel += ag_;
 
         if (moon != nullptr)
         {
             // Newton gravity around moon
             mu = 3.986004e14 * 0.3 * 0.3 * 0.3; // m^3/s^2
             ag_ = -(mphat) * mu / (mpmag * mpmag);
-            vel += ag_ * dt;
+            cumulative_accel += ag_;
+        }*/
+
+        bool emergency_overdrive = false;
+
+        if (red_team && blue_team && age > 1)
+        {
+            auto friendly_team = red_team;
+            auto enemy_team = blue_team;
+            if (team_is_blue)
+            {
+                friendly_team = blue_team;
+                enemy_team = red_team;
+            }
+
+            // Attractor / Repeller
+            for (auto friendly : *friendly_team)
+            {
+                // No boids have exactly matching position
+                if (friendly->pos == pos)
+                    continue;
+
+                auto r_this_other = friendly->pos - pos;
+                auto dist = r_this_other.norm();
+                auto dist_scaled = dist / 1e6;
+                double strength = 1.0;
+
+                double inv2_effect = 1.0 / pow(dist_scaled, 2);
+                double inv3_effect = 1.0 / pow(dist_scaled/2, 3);
+
+                Vector3d attraction_accel = r_this_other.normalized() * strength * inv2_effect;
+                double attraction_accel_norm = attraction_accel.norm();
+                //cumulative_accel += attraction_accel;
+                Vector3d repeller_accel = -r_this_other.normalized() * strength * inv3_effect*10;
+                double repeller_accel_norm = repeller_accel.norm();
+                //cumulative_accel += repeller_accel;
+            }
+
+            // Attractor / Repeller
+            for (auto enemy : *enemy_team)
+            {
+                // No boids have exactly matching position
+                if (enemy->pos == pos)
+                    continue;
+
+                auto r_this_other = enemy->pos - pos;
+                auto dist = r_this_other.norm();
+                auto dist_scaled = dist / 1e6;
+                double strength = 1.0;
+
+                double inv2_effect = 1.0 / pow(dist_scaled, 2);
+                double inv3_effect = 1.0 / pow(dist_scaled/2, 3);
+
+                //auto attraction_accel = r_this_other.normalized() * strength * inv2_effect;
+                //cumulative_accel += attraction_accel;
+                Vector3d repeller_accel = -r_this_other.normalized() * strength * inv3_effect * 10;
+                double repeller_accel_norm = repeller_accel.norm();
+                cumulative_accel += repeller_accel;
+
+                // If close
+                if (dist < 5e6)
+                {
+                    // If other in field of view
+                    if ((r_this_other.normalized()).dot(vel.normalized()) > 0.5)
+                    {
+                        // accelerate so the velocity is pointed more towards the enemy
+                        Vector3d targeting_accel = 10 * (r_this_other.normalized() - vel.normalized());
+                        double targeting_accel_norm = targeting_accel.norm();
+                        cumulative_accel += targeting_accel;
+                    }
+
+                    // If other is behind me and velocity pointed at me
+                    // (vec to enemy and negative velocity line up, and 
+                    //  vec from enemy and enemy's velocity line up)
+                    if ((r_this_other.normalized()).dot(-vel.normalized()) > 0.7 &&
+                        (-r_this_other.normalized()).dot(enemy->vel.normalized()) > 0.4)
+                    {
+                        emergency_overdrive = true;
+                        // accelerate so my velocity is pointed away from enemy's velocity
+                        Vector3d evading_accel = 50 * (vel.normalized()).cross(enemy->vel.normalized());
+                        double evading_accel_norm = evading_accel.norm();
+                        cumulative_accel += evading_accel;
+                    }
+                }
+
+                
+                
+            }
+
+            // Keep things close together
+            if (pmag > 1.5e7)
+                cumulative_accel -= (phat * 10);
+
+            // Don't hit ground
+            if (pos(2) < -0.5)
+                cumulative_accel += Vector3d{0,0,20};
         }
+
+
+        // interesting rotation
+        auto x_pointing_dir = vhat;
+        auto acceleration_not_along_pointing = cumulative_accel - (cumulative_accel.dot(x_pointing_dir) * x_pointing_dir);
+        // Can only accelerate along non-pointing vector
+        auto accel_actual = acceleration_not_along_pointing.normalized() * cumulative_accel.norm();
+        //auto accel_actual = acceleration_not_along_pointing;
+
+        if (acceleration_not_along_pointing.norm() > 1.0 && accel_actual.norm() > 1.0)
+        {
+            eased_accel = eased_accel * 0.99 + accel_actual * 0.01;
+        }
+        //auto z_accel_dir = acceleration_not_along_pointing.normalized();
+        auto z_accel_dir = eased_accel.normalized();
+
+        T_world_body(seqN(0, 3), 0) = x_pointing_dir;
+        T_world_body(seqN(0, 3), 1) = z_accel_dir.cross(x_pointing_dir);
+        T_world_body(seqN(0, 3), 2) = z_accel_dir;
+        T_world_body(3, 3) = 1;
+
+
+        
+        vel += accel_actual * dt;
+
+        // non-physical velocity normalization
+        if (emergency_overdrive)
+        {
+            vel = vel.normalized() * 7000;
+        }
+        else
+        {
+            vel = vel.normalized() * 5000;
+        }
+
 
         age += dt;
     }
@@ -874,6 +1007,9 @@ C:
     glGenBuffers(1, &ballbuffer);
     glBindBuffer(GL_ARRAY_BUFFER, ballbuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(ball), ball, GL_STATIC_DRAW);
+    glGenBuffers(1, &ballbuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, ballbuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(ship), ship, GL_STATIC_DRAW);
     // position attribute 
     Better_glVertexAttribPointer(vtxAttributeIdx_Position, 3, GL_FLOAT, false, 6 * sizeof(float), (void*)0);
     Better_glEnableVertexAttribArray(vtxAttributeIdx_Position);
@@ -908,12 +1044,13 @@ C:
 
     ///////////////////////////////////////////
     //Options
-    double timescale = 1000;
+    double timescale = 300;
 
 
     
     Ball moon;
-    vector<Ball*> balls;
+    vector<Ball*> red_team;
+    vector<Ball*> blue_team;
     /*for (int i = 0; i<ball_count; i++)
     {
         balls.push_back(new Ball);
@@ -922,7 +1059,11 @@ C:
 
 
     auto prevTime = std::chrono::high_resolution_clock::now();
-    for (auto ball : balls)
+    for (auto ball : red_team)
+    {
+        ball->random_state();
+    }
+    for (auto ball : blue_team)
     {
         ball->random_state();
     }
@@ -964,10 +1105,18 @@ C:
         glBindVertexArray(VAO_planet);
 
         // Translate planet to its position and draw
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0, 0.0, 0.0));
-        planetShader.setMat4("model", model);
-        glDrawArrays(GL_TRIANGLES, 0, 24);
+
+        // Planet "floor"
+        for (int i = -4; i <= 4; i++)
+        {
+            for (int j = -4; j <= 4; j++)
+            {
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, glm::vec3(i*0.35, j*0.35, -0.5));
+                planetShader.setMat4("model", model);
+                glDrawArrays(GL_TRIANGLES, 0, 24);
+            }
+        }
 
         planetShader.setFloat("scale", 0.3f);
 
@@ -991,7 +1140,7 @@ C:
         glBindVertexArray(VAO);
         //glBindVertexArray(meshes[0]->vao);
 
-        for (auto ball : balls)
+        for (auto ball : red_team)
         {
             if (ball->dead)
                 continue;
@@ -1001,7 +1150,22 @@ C:
             auto transf_rot = ball->getrot();
             model = model * E2GLM(transf_rot);
             defaultShader.setMat4("model", model);
-            defaultShader.setFloat("age", ball->age / timescale);
+            defaultShader.setFloat("age", 100);
+            //defaultShader.setFloat("age", ball->age / timescale);
+            glDrawArrays(GL_TRIANGLES, 0, 24);
+        }
+        
+        for (auto ball : blue_team)
+        {
+            if (ball->dead)
+                continue;
+            // Translate ball to its position and draw
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, glm::vec3(ball->getpos(0), ball->getpos(1), ball->getpos(2)));
+            auto transf_rot = ball->getrot();
+            model = model * E2GLM(transf_rot);
+            defaultShader.setMat4("model", model);
+            defaultShader.setFloat("age", 0);
             glDrawArrays(GL_TRIANGLES, 0, 24);
         }
         /////////////////////////////////////////
@@ -1032,27 +1196,47 @@ C:
         {
             step_skip_itr = 0;
 
-            if (irl_elapsed < 1)
+            if (irl_elapsed < 0.3)
             {
-                for (int i = 0; i < 10; i++)
+                // Spawning new balls
+                for (int i = 0; i < 1; i++)
                 {
-                    balls.push_back(new Ball);
-                    balls.back()->restitution = restitution;
-                    balls.back()->moon = &moon;
-                    balls.back()->pos[0] = moon.pos[0];
-                    balls.back()->pos[1] = moon.pos[1];
-                    balls.back()->pos[2] = moon.pos[2];
-                    balls.back()->vel[0] = moon.vel[0];
-                    balls.back()->vel[1] = moon.vel[1];
-                    balls.back()->vel[2] = moon.vel[2];
-                    balls.back()->random_bump();
+                    red_team.push_back(new Ball);
+                    red_team.back()->restitution = restitution;
+                    red_team.back()->moon = &moon;
+                    red_team.back()->pos = moon.pos;
+                    red_team.back()->vel = moon.vel;
+                    red_team.back()->random_bump();
+                    red_team.back()->red_team = &red_team;
+                    red_team.back()->blue_team = &blue_team;
+                    red_team.back()->team_is_blue = false;
+
+                    blue_team.push_back(new Ball);
+                    blue_team.back()->restitution = restitution;
+                    blue_team.back()->moon = &moon;
+                    blue_team.back()->pos = {3e6, 3e6, 3e6};
+                    blue_team.back()->vel = {0,0,0};
+                    blue_team.back()->random_bump();
+                    blue_team.back()->red_team = &red_team;
+                    blue_team.back()->blue_team = &blue_team;
+                    blue_team.back()->team_is_blue = true;
                 }
             }
-            for (auto ball : balls)
+            for (auto ball : red_team)
             {
                 if (!ball->dead)
                     ball->step(accumulated_dt);
             }
+            for (auto ball : blue_team)
+            {
+                if (!ball->dead)
+                    ball->step(accumulated_dt);
+            }/*
+            for (auto ball : balls)
+            {
+                if (!ball->dead)
+                    ball->step(accumulated_dt);
+            }*/
             moon.step(accumulated_dt);
             
             
