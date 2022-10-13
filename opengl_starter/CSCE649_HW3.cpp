@@ -27,7 +27,7 @@
 //#include "Decal.h"
 //#include "Font.h"
 //#include "Framebuffer.h"
-#include "GltfLoader.h"
+//#include "GltfLoader.h"
 //#include "Grass.h"
 //#include "ImGuiHandler.h"
 //#include "Mesh.h"
@@ -38,10 +38,6 @@
 //#include "TextRenderer.h"
 //#include "Texture.h"
 //#include "Window.h"
-
-/*
-"Low Poly Jet Mk.2" (https://skfb.ly/6ZrWs) by checkersai is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
-*/
 
 using namespace std;
 using namespace Eigen;
@@ -564,7 +560,7 @@ public:
         double pmag = pos.norm();
         Vector3d phat = pos.normalized();
 
-        if (pmag > 8e7)
+        if (pmag > 4e7)
             dead = true;
 
         //// interesting rotation
@@ -694,7 +690,7 @@ public:
 
                 //auto attraction_accel = r_this_other.normalized() * strength * inv2_effect;
                 //cumulative_accel += attraction_accel;
-                Vector3d repeller_accel = -r_this_other.normalized() * strength * inv3_effect * 10;
+                Vector3d repeller_accel = -r_this_other.normalized() * strength * inv3_effect * 2;
                 double repeller_accel_norm = repeller_accel.norm();
                 cumulative_accel += repeller_accel;
 
@@ -1152,13 +1148,13 @@ C:
             }
         }
 
-        planetShader.setFloat("scale", 0.3f);
+        //planetShader.setFloat("scale", 0.3f);
 
-        // Translate planet to its position and draw
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(moon.getpos(0), moon.getpos(1), moon.getpos(2)));
-        planetShader.setMat4("model", model);
-        glDrawArrays(GL_TRIANGLES, 0, 24);
+        //// Translate planet to its position and draw
+        //model = glm::mat4(1.0f);
+        //model = glm::translate(model, glm::vec3(moon.getpos(0), moon.getpos(1), moon.getpos(2)));
+        //planetShader.setMat4("model", model);
+        //glDrawArrays(GL_TRIANGLES, 0, 24);
         /////////////////////////////////////////
 
 
@@ -1208,7 +1204,7 @@ C:
         defaultShader.setMat4("projection", projection);
         defaultShader.setMat4("view", view);
         defaultShader.setVec3("lightDir", lightDir);
-        defaultShader.setFloat("scale", 0.2f);
+        defaultShader.setFloat("scale", 0.1f);
         glBindVertexArray(VAO_shot);
         //glBindVertexArray(meshes[0]->vao);
 
@@ -1254,7 +1250,7 @@ C:
             if (irl_elapsed < 0.3)
             {
                 // Spawning new balls
-                for (int i = 0; i < 1; i++)
+                for (int i = 0; i < 2; i++)
                 {
                     red_team.push_back(new Ball);
                     red_team.back()->restitution = restitution;
