@@ -32,6 +32,7 @@ add_executable (csce649_hw2
 
 add_executable (csce649_hw3 
     "CSCE649_HW3.cpp"  
+    "GltfLoader.cpp"
 )
 
 set_property(TARGET opengl_starter PROPERTY CXX_STANDARD 17)

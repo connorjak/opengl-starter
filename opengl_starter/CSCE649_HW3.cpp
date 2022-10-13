@@ -27,7 +27,7 @@
 //#include "Decal.h"
 //#include "Font.h"
 //#include "Framebuffer.h"
-//#include "GltfLoader.h"
+#include "GltfLoader.h"
 //#include "Grass.h"
 //#include "ImGuiHandler.h"
 //#include "Mesh.h"
@@ -84,42 +84,8 @@ inline glm::vec<m, float, glm::precision::highp> E2GLM(const Eigen::Matrix<T, m,
 
 const unsigned int SCR_WIDTH = 1600;
 const unsigned int SCR_HEIGHT = 1200;
-// Hardcoded shaders so we don't need extra files
-const char* vertexShaderSource = "#version 330 core\n"
-"layout (location = 0) in vec3 aPos;\n"
-"layout (location = 1) in vec3 aColor;\n"
-"uniform mat4 model;\n"
-"uniform mat4 view;\n"
-"uniform mat4 projection;\n"
-"out vec3 vertColor;\n"
-"out vec3 normal;\n"
-"void main()\n"
-"{\n"
-"   gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
-"   vertColor = aColor;\n"
-"   normal = aPos.normalize();\n"
-"}\0";
-
 static int vtxAttributeIdx_Position = 0;
 static int vtxAttributeIdx_Color = 1;
-
-const char* fragmentShaderSource = "#version 330 core\n"
-"out vec4 FragColor;\n"
-"in vec3 vertColor;\n"
-"in vec3 normal;\n"
-"void main()\n"
-"{\n"
-"   FragColor = vec4(vertColor, 1.0f);\n"
-"}\n\0";
-
-const char* planetFragmentShaderSource = "#version 330 core\n"
-"uniform vec3 lightDir;\n"
-"out vec4 FragColor;\n"
-"in vec3 vertColor;\n"
-"void main()\n"
-"{\n"
-"   FragColor = vec4(vertColor, 1.0f);\n"
-"}\n\0";
 
 // View parameters
 static float theta = 0.0;
@@ -881,7 +847,13 @@ int main(int argc, char* argv[])
             camradius -= yoffset/3;
             updateCamCoords();
         });
+C:
+    //std::vector<opengl_starter::Mesh*> meshes;
+    //opengl_starter::Node root{ "root" };
+    //opengl_starter::GltfLoader::Load("assets/lowpoly_jet/scene.gltf", &root, meshes);
+    //opengl_starter::GltfLoader::Load("assets/lowpoly_jet/scene.gltf", nullptr, meshes);
 
+    
 
     // Enable depth buffering, backface culling
     glEnable(GL_DEPTH_TEST);
@@ -1017,6 +989,7 @@ int main(int argc, char* argv[])
         defaultShader.setVec3("lightDir", lightDir);
         defaultShader.setFloat("scale", 1.0f);
         glBindVertexArray(VAO);
+        //glBindVertexArray(meshes[0]->vao);
 
         for (auto ball : balls)
         {
