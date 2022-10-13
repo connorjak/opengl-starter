@@ -748,6 +748,10 @@ public:
             if (pos(2) < -0.5)
                 cumulative_accel += Vector3d{0,0,20};
 
+            
+            // Stay somewhat low
+            cumulative_accel += Vector3d{ 0, 0, -1 };
+
 
             // interesting rotation
             auto x_pointing_dir = vhat;
@@ -764,7 +768,7 @@ public:
             auto z_accel_dir = eased_accel.normalized();
 
             T_world_body(seqN(0, 3), 0) = x_pointing_dir;
-            T_world_body(seqN(0, 3), 1) = z_accel_dir.cross(x_pointing_dir);
+            T_world_body(seqN(0, 3), 1) = z_accel_dir.cross(x_pointing_dir).normalized();
             T_world_body(seqN(0, 3), 2) = z_accel_dir;
             T_world_body(3, 3) = 1;
 
@@ -938,7 +942,7 @@ public:
 int main(int argc, char* argv[])
 {
     int step_skip_amt = 1; //how many graphics steps per physics step
-    int ball_count = 10000;
+    int ball_count = 100;
     float restitution = 0.8;
 
     if (argc >= 2) {
@@ -1106,6 +1110,8 @@ C:
     double irl_elapsed = 0;
     double sim_elapsed = 0;
 
+    int ballsSoFar = 0;
+
     glm::vec3 lightDir = { 1, 3, 1 }; // position of lightsource
     lightDir = -glm::normalize(lightDir);
 
@@ -1247,11 +1253,13 @@ C:
         {
             step_skip_itr = 0;
 
-            if (irl_elapsed < 0.5)
+            //if (irl_elapsed < 0.3)
+            if (ballsSoFar < ball_count)
             {
                 // Spawning new balls
-                for (int i = 0; i < 1; i++)
+                for (int i = 0; i < 3; i++)
                 {
+                    ballsSoFar += 2;
                     red_team.push_back(new Ball);
                     red_team.back()->restitution = restitution;
                     red_team.back()->moon = &moon;
