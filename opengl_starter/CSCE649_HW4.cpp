@@ -346,7 +346,7 @@ bool randomBool()
     return gen();
 }
 
-constexpr double scale = 15000e3; // scale factor from sim units to render units
+constexpr double scale = 5; // scale factor from sim units to render units
 
 /*
  1 x-----------x 3
@@ -494,146 +494,121 @@ public:
 
 struct Spring
 {
+    // 1-indexed start vertex
     int v1;
+    // 1-indexed end vertex
     int v2;
     double unstretched_length;
 
-    bool operator ==(const Spring& rhs) const
+    //// Springs can be deduplicated
+    //bool operator ==(const Spring& rhs) const
+    //{
+    //    return (v1 == rhs.v1 && v2 == rhs.v2 && unstretched_length == rhs.unstretched_length) ||
+    //           (v1 == rhs.v2 && v2 == rhs.v1 && unstretched_length == rhs.unstretched_length);
+    //}
+
+    // Springs can be deduplicated
+    bool operator<(const Spring& rhs) const
     {
-        return (v1 == rhs.v1 && v2 == rhs.v2 && unstretched_length == rhs.unstretched_length) ||
-               (v1 == rhs.v2 && v2 == rhs.v1 && unstretched_length == rhs.unstretched_length);
+
+        bool vertices_match = (v1 == rhs.v1 && v2 == rhs.v2) ||
+                              (v1 == rhs.v2 && v2 == rhs.v1);
+
+        if (vertices_match)
+        {
+            return unstretched_length < rhs.unstretched_length;
+        }
+
+
+        return std::tie(v1, v2, unstretched_length) < std::tie(rhs.v1, rhs.v2, rhs.unstretched_length);
+
+        //if (v1 < rhs.v1)
+        //{
+        //    return true;
+        //}
+        //else if (v1 == rhs.v1)
+        //{
+        //    if (v2 < rhs.v2)
+        //        return true;
+        //}
+        //else
+        //{
+        //    return false;
+        //}
+
+        //bool length_is_less = unstretched_length < rhs.unstretched_length;
+        //if (length_is_less)
+        //    return true;
+        //if (unstretched_length > rhs.unstretched_length)
+        //    return false;
+
+
+        
     }
+
+};
+//
+//auto spring_cmp = [](const Spring& a, const Spring& b) {
+//    return !(a == b);
+//};
+//
+//static bool Spring_compare(const Spring& lhs, const Spring& rhs)
+//{
+//}
+
+const double hypot_1_1 = sqrt(2.0);
+
+// Index of start vert, index of end vert, unstretched length.
+// Auto-deduplicates.
+static const set<Spring> springs = {
+    // Front face
+    { 1, 2, 1.0 },
+    { 2, 3, 1.0 },
+    { 3, 4, 1.0 },
+    { 4, 1, 1.0 },
+    { 1, 3, hypot_1_1 },
+    // Back face
+    { 1 + 4, 2 + 4, 1.0 },
+    { 2 + 4, 3 + 4, 1.0 },
+    { 3 + 4, 4 + 4, 1.0 },
+    { 4 + 4, 1 + 4, 1.0 },
+    { 1 + 4, 3 + 4, hypot_1_1 },
+    // Left face
+    { 1, 5, 1.0 },
+    { 5, 7, 1.0 },
+    { 7, 3, 1.0 },
+    { 3, 1, 1.0 },
+    { 1, 7, hypot_1_1 },
+    // Right face
+    { 1 + 1, 5 + 1, 1.0 },
+    { 5 + 1, 7 + 1, 1.0 },
+    { 7 + 1, 3 + 1, 1.0 },
+    { 3 + 1, 1 + 1, 1.0 },
+    { 1 + 1, 7 + 1, hypot_1_1 },
+    // Top face
+    { 1, 2, 1.0 },
+    { 2, 6, 1.0 },
+    { 6, 5, 1.0 },
+    { 5, 1, 1.0 },
+    { 1, 6, hypot_1_1 },
+    // Bottom face
+    { 1 + 2, 2 + 2, 1.0 },
+    { 2 + 2, 6 + 2, 1.0 },
+    { 6 + 2, 5 + 2, 1.0 },
+    { 5 + 2, 1 + 2, 1.0 },
+    { 1 + 2, 6 + 2, hypot_1_1 },
 };
 
 class SoftCube : public RenderSoftCube
 {
 public:
-    double springconst_edge = 100.0; // N / m
-    double springconst_compression = 100.0; // N / m
+    double springconst = 100.0; // N / m
     float age = 0.0f;
-    //bool dead = false;
+
+    double vert_mass = 0.4; //kg
     
-    // Index of start vert, index of end vert, unstretched length
-    set<Spring> springs = {
-        // Front face
-        { 1, 2, 1.0 },
-        { 2, 3, 1.0 },
-        { 3, 4, 1.0 },
-        { 4, 1, 1.0 },
-        // Back face
-        { 1 + 4, 2 + 4, 1.0 },
-        { 2 + 4, 3 + 4, 1.0 },
-        { 3 + 4, 4 + 4, 1.0 },
-        { 4 + 4, 1 + 4, 1.0 },
-        // Left face
-        { 1, 5, 1.0 },
-        { 5, 7, 1.0 },
-        { 7, 3, 1.0 },
-        { 3, 1, 1.0 },
-        // Right face
-        { 1 + 1, 5 + 1, 1.0 },
-        { 5 + 1, 7 + 1, 1.0 },
-        { 7 + 1, 3 + 1, 1.0 },
-        { 3 + 1, 1 + 1, 1.0 },
-        // Top face
-        { 1, 2, 1.0 },
-        { 2, 6, 1.0 },
-        { 6, 5, 1.0 },
-        { 5, 1, 1.0 },
-        // Bottom face
-        { 1+2, 2+2, 1.0 },
-        { 2+2, 6+2, 1.0 },
-        { 6+2, 5+2, 1.0 },
-        { 5+2, 1+2, 1.0 }
-    };
-
 public:
-    //void random_state()
-    //{
-    //    std::random_device r;
-    //    // std::seed_seq ssq{r()};
-    //    // and then passing it to the engine does the same
-    //    std::default_random_engine eng{ r() };
-    //    std::uniform_real_distribution<double> distribution_r(8e6, 11e6);
-    //    std::uniform_real_distribution<double> distribution_theta(0, 2 * M_PI);
-    //    std::uniform_real_distribution<double> distribution_z(-2e6, 2e6);
-    //    //std::uniform_real_distribution<double> distribution_vxy(5000, 9000);
-    //    std::uniform_real_distribution<double> distribution_vtheta(7.6e3, 8.5e3);
-    //    std::uniform_real_distribution<double> distribution_vr(-300, 300);
-    //    std::uniform_real_distribution<double> distribution_vz(-2000, 2000);
 
-    //    /*
-    //      thetahat-\ /-rhat 
-    //                X
-    //            |  /
-    //            | /  \
-    //            |/  Theta
-    //            x-----|---------
-    //    */
-    //   
-    //    double radius = distribution_r(eng);
-    //    double theta = distribution_theta(eng);
-    //    double z = distribution_z(eng);
-
-    //    double rhat[3];
-    //    rhat[0] = std::cos(theta);
-    //    rhat[1] = std::sin(theta);
-    //    rhat[2] = 0;
-    //    double thetahat[3];
-    //    thetahat[0] = -std::sin(theta);
-    //    thetahat[1] = std::cos(theta);
-    //    thetahat[2] = 0;
-
-    //    double vr = distribution_vr(eng);
-    //    double vtheta = distribution_vtheta(eng);
-
-    //    pos[0] = radius * rhat[0];
-    //    pos[1] = radius * rhat[1];
-    //    pos[2] = z;
-
-    //    vel[0] = vr * rhat[0] + vtheta * thetahat[0];
-    //    vel[1] = vr * rhat[1] + vtheta * thetahat[1];
-    //    vel[2] = distribution_vz(eng);
-    //}
-
-    //void random_bump()
-    //{
-    //    std::random_device r;
-    //    // std::seed_seq ssq{r()};
-    //    // and then passing it to the engine does the same
-    //    std::default_random_engine eng{ r() };
-    //    std::uniform_real_distribution<double> distribution_r(6.7e6 * 0.3, 7.5e6 * 0.3);
-    //    std::uniform_real_distribution<double> distribution_theta(0, 2 * M_PI);
-    //    std::uniform_real_distribution<double> distribution_phi(M_PI / 4, 3*M_PI / 4);
-    //    std::uniform_real_distribution<double> distribution_v(1000, 5000);
-    //    std::uniform_real_distribution<double> distribution_vz(-500, 500);
-
-    //    double radius = distribution_r(eng);
-    //    double theta = distribution_theta(eng);
-    //    double phi = distribution_phi(eng);
-
-    //    double rhat[3];
-    //    rhat[0] = std::cos(theta) * std::sin(phi);
-    //    rhat[1] = std::sin(theta) * std::sin(phi);
-    //    rhat[2] = std::cos(phi);
-
-    //    pos[0] += radius * rhat[0];
-    //    pos[1] += radius * rhat[1];
-    //    pos[2] += radius * rhat[2];
-
-    //    for (int i = 0; i < 2; ++i)
-    //    {
-    //        double number = distribution_v(eng);
-    //        bool sign = randomBool();
-    //        if (sign)
-    //            vel[i] += number;
-    //        else
-    //            vel[i] -= number;
-    //    }
-
-    //    double number = distribution_vz(eng);
-    //    vel[2] += number;
-    //}
 
     void step(double dt)
     {
@@ -650,10 +625,11 @@ public:
         };               //m/s2
 
 
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < verts_pos.size(); i++)
         {
             auto& pos = verts_pos[i];
             auto& vel = verts_vel[i];
+            auto& acc = verts_accel[i];
             // Euler propagation
             pos += vel * dt;
 
@@ -697,8 +673,8 @@ public:
             //}
 
             // Accelerations
+            acc = { 0, 0, 0 };
 
-            //Vector3d cumulative_accel = { 0, 0, 0 };
 
             //// Air drag
             //double density = 0.1; //kg/m3
@@ -709,15 +685,44 @@ public:
             //vel[2] -= vhat[2] * drag_mag * dt;
 
 
-            auto& acc = verts_accel[i];
+            // Vertical Gravity
+            acc += Vector3d{0, 0, -9.8};
             
-            acc = { 0, 0, 0 };
+            // Spring Forces
+            for (const auto& spring : springs)
+            {
+                // Index of spring start
+                auto v1 = spring.v1 - 1;
+                auto v2 = spring.v2 - 1;
+                if (v1 != i && v2 != i)
+                    continue;
+
+                Vector3d other_vert_pos;
+                if (v1 == i)
+                {
+                    other_vert_pos = verts_pos[v2];
+                }
+                else
+                {
+                    other_vert_pos = verts_pos[v1];
+                }
+                auto r_me_to_other = other_vert_pos - pos;
+                auto current_length = r_me_to_other.norm();
+                auto deflection = current_length - spring.unstretched_length;
+                auto rhat_me_to_other = r_me_to_other.normalized();
+                // Positive for a stretched spring, negative for compressed
+                auto force_mag = deflection * springconst;
+                // Force on this vert due to spring
+                auto force_on_me = force_mag * rhat_me_to_other;
+                acc += force_on_me / vert_mass;
+            }
+
 
         }
 
 
         // Propagation
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < verts_pos.size(); i++)
         {
             auto& pos = verts_pos[i];
             auto& vel = verts_vel[i];
@@ -728,6 +733,16 @@ public:
 
             // Euler propagation
             vel += acc * dt;
+
+            // "Floor" collision
+            // TODO can apply surface friction based on time during tick spent on surface
+            double floor_height = -1;
+            if (pos.z() < floor_height)
+            {
+                pos.z() = floor_height;
+                if (vel.z() < 0)
+                    vel.z() = 0;
+            }
         }
         age += dt;
     }
@@ -883,7 +898,7 @@ public:
 int main(int argc, char* argv[])
 {
     int step_skip_amt = 1; //how many graphics steps per physics step
-    int ball_count = 100;
+    int ball_count = 1;
     float restitution = 0.8;
 
     if (argc >= 2) {
@@ -1018,15 +1033,15 @@ C:
 
     ///////////////////////////////////////////
     //Options
-    double timescale = 300;
+    double timescale = 0.1;
 
-
+    vector<SoftCube*> bodies;
     
-    /*for (int i = 0; i<ball_count; i++)
+    for (int i = 0; i<ball_count; i++)
     {
-        balls.push_back(new Ball);
-        balls.back()->restitution = restitution;
-    }*/
+        bodies.push_back(new SoftCube);
+        bodies.back()->translate_verts(Vector3d{ i * 3.0, 0.0, 0.0 });
+    }
 
 
     auto prevTime = std::chrono::high_resolution_clock::now();
@@ -1102,45 +1117,45 @@ C:
 
 
 
-        /////////////////////////////////////////
-        // Render ships 
-        defaultShader.use();
-        defaultShader.setMat4("projection", projection);
-        defaultShader.setMat4("view", view);
-        defaultShader.setVec3("lightDir", lightDir);
-        defaultShader.setFloat("scale", 1.0f);
-        glBindVertexArray(VAO);
-        //glBindVertexArray(meshes[0]->vao);
+        ///////////////////////////////////////////
+        //// Render ships 
+        //defaultShader.use();
+        //defaultShader.setMat4("projection", projection);
+        //defaultShader.setMat4("view", view);
+        //defaultShader.setVec3("lightDir", lightDir);
+        //defaultShader.setFloat("scale", 1.0f);
+        //glBindVertexArray(VAO);
+        ////glBindVertexArray(meshes[0]->vao);
 
-        /*
-        for (auto ball : red_team)
-        {
-            if (ball->dead)
-                continue;
-            // Translate ball to its position and draw
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, glm::vec3(ball->getpos(0), ball->getpos(1), ball->getpos(2)));
-            auto transf_rot = ball->getrot();
-            model = model * E2GLM(transf_rot);
-            defaultShader.setMat4("model", model);
-            defaultShader.setFloat("age", 100);
-            //defaultShader.setFloat("age", ball->age / timescale);
-            glDrawArrays(GL_TRIANGLES, 0, 24);
-        }
-        
-        for (auto ball : blue_team)
-        {
-            if (ball->dead)
-                continue;
-            // Translate ball to its position and draw
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, glm::vec3(ball->getpos(0), ball->getpos(1), ball->getpos(2)));
-            auto transf_rot = ball->getrot();
-            model = model * E2GLM(transf_rot);
-            defaultShader.setMat4("model", model);
-            defaultShader.setFloat("age", 0);
-            glDrawArrays(GL_TRIANGLES, 0, 24);
-        }
+        //
+        //for (auto ball : red_team)
+        //{
+        //    if (ball->dead)
+        //        continue;
+        //    // Translate ball to its position and draw
+        //    model = glm::mat4(1.0f);
+        //    model = glm::translate(model, glm::vec3(ball->getpos(0), ball->getpos(1), ball->getpos(2)));
+        //    auto transf_rot = ball->getrot();
+        //    model = model * E2GLM(transf_rot);
+        //    defaultShader.setMat4("model", model);
+        //    defaultShader.setFloat("age", 100);
+        //    //defaultShader.setFloat("age", ball->age / timescale);
+        //    glDrawArrays(GL_TRIANGLES, 0, 24);
+        //}
+        //
+        //for (auto ball : blue_team)
+        //{
+        //    if (ball->dead)
+        //        continue;
+        //    // Translate ball to its position and draw
+        //    model = glm::mat4(1.0f);
+        //    model = glm::translate(model, glm::vec3(ball->getpos(0), ball->getpos(1), ball->getpos(2)));
+        //    auto transf_rot = ball->getrot();
+        //    model = model * E2GLM(transf_rot);
+        //    defaultShader.setMat4("model", model);
+        //    defaultShader.setFloat("age", 0);
+        //    glDrawArrays(GL_TRIANGLES, 0, 24);
+        //}
         /////////////////////////////////////////
         // Render shots
         shotShader.use();
@@ -1151,21 +1166,23 @@ C:
         glBindVertexArray(VAO_shot);
         //glBindVertexArray(meshes[0]->vao);
 
-        for (auto ball : shots)
+        for (auto body : bodies)
         {
-            if (ball->dead)
-                continue;
-            // Translate ball to its position and draw
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, glm::vec3(ball->getpos(0), ball->getpos(1), ball->getpos(2)));
-            defaultShader.setMat4("model", model);
-            defaultShader.setFloat("age", 100);
-            //defaultShader.setFloat("age", ball->age / timescale);
-            glDrawArrays(GL_TRIANGLES, 0, 24);
+            for (const auto& vert_pos : body->verts_pos)
+            {
+                auto scaled_pos = vert_pos / scale;
+                // Translate ball to its position and draw
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, glm::vec3(scaled_pos.x(), scaled_pos.y(), scaled_pos.z()));
+                defaultShader.setMat4("model", model);
+                defaultShader.setFloat("age", 100);
+                //defaultShader.setFloat("age", ball->age / timescale);
+                glDrawArrays(GL_TRIANGLES, 0, 24);
+            }
         }
         /////////////////////////////////////////
 
-        */
+        
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -1189,6 +1206,11 @@ C:
         if (++step_skip_itr == step_skip_amt)
         {
             step_skip_itr = 0;
+
+            for (auto body : bodies)
+            {
+                body->step(accumulated_dt);
+            }
 
             /*
             //if (irl_elapsed < 0.3)
