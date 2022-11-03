@@ -93,6 +93,16 @@ static float camX = camradius;
 static float camY = 0.0;
 static float camZ = 0.0;
 
+// Options
+static int step_skip_amt = 1; //how many graphics steps per physics step
+static int ball_count = 1;
+static double timescale = 1.0;
+// 1 for Euler, 2 for RK4
+static int prop_type = 1;
+static double drop_height = 2.0;
+
+
+
 void updateCamCoords()
 {
     camX = camradius * cos(glm::radians(phi)) * cos(glm::radians(theta));
@@ -510,51 +520,17 @@ struct Spring
     // Springs can be deduplicated
     bool operator<(const Spring& rhs) const
     {
-
         bool vertices_match = (v1 == rhs.v1 && v2 == rhs.v2) ||
                               (v1 == rhs.v2 && v2 == rhs.v1);
-
         if (vertices_match)
         {
             return unstretched_length < rhs.unstretched_length;
         }
 
-
         return std::tie(v1, v2, unstretched_length) < std::tie(rhs.v1, rhs.v2, rhs.unstretched_length);
-
-        //if (v1 < rhs.v1)
-        //{
-        //    return true;
-        //}
-        //else if (v1 == rhs.v1)
-        //{
-        //    if (v2 < rhs.v2)
-        //        return true;
-        //}
-        //else
-        //{
-        //    return false;
-        //}
-
-        //bool length_is_less = unstretched_length < rhs.unstretched_length;
-        //if (length_is_less)
-        //    return true;
-        //if (unstretched_length > rhs.unstretched_length)
-        //    return false;
-
-
-        
     }
 
 };
-//
-//auto spring_cmp = [](const Spring& a, const Spring& b) {
-//    return !(a == b);
-//};
-//
-//static bool Spring_compare(const Spring& lhs, const Spring& rhs)
-//{
-//}
 
 const double hypot_1_1 = sqrt(2.0);
 
@@ -563,16 +539,16 @@ const double hypot_1_1 = sqrt(2.0);
 static const set<Spring> springs = {
     // Front face
     { 1, 2, 1.0 },
-    { 2, 3, 1.0 },
-    { 3, 4, 1.0 },
-    { 4, 1, 1.0 },
-    { 1, 3, hypot_1_1 },
+    { 2, 4, 1.0 },
+    { 4, 3, 1.0 },
+    { 3, 1, 1.0 },
+    { 1, 4, hypot_1_1 },
     // Back face
     { 1 + 4, 2 + 4, 1.0 },
-    { 2 + 4, 3 + 4, 1.0 },
-    { 3 + 4, 4 + 4, 1.0 },
-    { 4 + 4, 1 + 4, 1.0 },
-    { 1 + 4, 3 + 4, hypot_1_1 },
+    { 2 + 4, 4 + 4, 1.0 },
+    { 4 + 4, 3 + 4, 1.0 },
+    { 3 + 4, 1 + 4, 1.0 },
+    { 1 + 4, 4 + 4, hypot_1_1 },
     // Left face
     { 1, 5, 1.0 },
     { 5, 7, 1.0 },
@@ -599,10 +575,32 @@ static const set<Spring> springs = {
     { 1 + 2, 6 + 2, hypot_1_1 },
 };
 
+static const vector<tuple<int, int, int>> cube_triangles = {
+    // Front
+    { 1, 3, 2 },
+    { 2, 3, 4 },
+    // Left
+    { 5, 7, 1 },
+    { 1, 7, 3 },
+    // Back
+    { 6, 8, 5 },
+    { 5, 8, 7 },
+    // Right
+    { 2, 4, 6 },
+    { 6, 4, 8 },
+    // Top
+    { 5, 1, 6 },
+    { 6, 1, 2 },
+    // Bottom
+    { 3, 7, 4 },
+    { 4, 7, 8 },
+};
+
 class SoftCube : public RenderSoftCube
 {
 public:
     double springconst = 100.0; // N / m
+    double damperconst = 5.0; // N / (m/s)
     float age = 0.0f;
 
     double vert_mass = 0.4; //kg
@@ -630,8 +628,6 @@ public:
             auto& pos = verts_pos[i];
             auto& vel = verts_vel[i];
             auto& acc = verts_accel[i];
-            // Euler propagation
-            pos += vel * dt;
 
             // Gather metrics
             double vmag = vel.norm();
@@ -688,7 +684,7 @@ public:
             // Vertical Gravity
             acc += Vector3d{0, 0, -9.8};
             
-            // Spring Forces
+            // Spring/Damper forces
             for (const auto& spring : springs)
             {
                 // Index of spring start
@@ -698,24 +694,39 @@ public:
                     continue;
 
                 Vector3d other_vert_pos;
+                Vector3d other_vert_vel;
                 if (v1 == i)
                 {
                     other_vert_pos = verts_pos[v2];
+                    other_vert_vel = verts_vel[v2];
                 }
                 else
                 {
                     other_vert_pos = verts_pos[v1];
+                    other_vert_vel = verts_vel[v1];
                 }
+
+                // Spring Forces
                 auto r_me_to_other = other_vert_pos - pos;
                 auto current_length = r_me_to_other.norm();
                 auto deflection = current_length - spring.unstretched_length;
                 auto rhat_me_to_other = r_me_to_other.normalized();
                 // Positive for a stretched spring, negative for compressed
-                auto force_mag = deflection * springconst;
+                auto spring_force_mag = deflection * springconst;
                 // Force on this vert due to spring
-                auto force_on_me = force_mag * rhat_me_to_other;
-                acc += force_on_me / vert_mass;
+                auto spring_force_on_me = spring_force_mag * rhat_me_to_other;
+                acc += spring_force_on_me / vert_mass;
+
+                // Damper Forces
+                auto v_me_rel_to_other = other_vert_vel - vel;
+                auto radial_vel_me_towards_other = v_me_rel_to_other.dot(rhat_me_to_other);
+                // Positive for a vel towards, negative for vel away
+                auto damper_force_mag = radial_vel_me_towards_other * damperconst;
+                // Force on this vert due to damper
+                auto damper_force_on_me = damper_force_mag * (rhat_me_to_other);
+                acc += damper_force_on_me / vert_mass;
             }
+
 
 
         }
@@ -726,13 +737,23 @@ public:
         {
             auto& pos = verts_pos[i];
             auto& vel = verts_vel[i];
-            // Euler propagation
-            pos += vel * dt;
+            
+            if (prop_type == 1)
+            {
+                // Euler propagation
+                pos += vel * dt;
 
-            const auto& acc = verts_accel[i];
+                const auto& acc = verts_accel[i];
 
-            // Euler propagation
-            vel += acc * dt;
+                // Euler propagation
+                vel += acc * dt;
+            }
+            else //RK4
+            {
+                // RK4 propagation
+            }
+
+            
 
             // "Floor" collision
             // TODO can apply surface friction based on time during tick spent on surface
@@ -764,9 +785,20 @@ static void Better_glEnableVertexAttribArray(int attributeToConfigureIdx)
     glEnableVertexAttribArray(attributeToConfigureIdx);
 }
 
+static void Better_glDisableVertexAttribArray(int attributeToConfigureIdx)
+{
+    glDisableVertexAttribArray(attributeToConfigureIdx);
+}
+
 static void Better_glUniformMatrix4fv(matrix_id_t mat, int howManyMatricesToSend, bool transpose, glm::f32* value)
 {
     glUniformMatrix4fv(mat, howManyMatricesToSend, transpose, value);
+}
+
+static void updateBuffer(buffer_id_t id, size_t offset, void* data, size_t size, int type)
+{
+    glBindBuffer(type, id);
+    glBufferSubData(type, offset, size, data);
 }
 
 
@@ -894,32 +926,26 @@ public:
 };
 
 
-
 int main(int argc, char* argv[])
 {
-    int step_skip_amt = 1; //how many graphics steps per physics step
-    int ball_count = 1;
-    float restitution = 0.8;
-
     if (argc >= 2) {
         string arg = string(argv[1]);
         ball_count = stoi(arg);
     }
     if (argc >= 3)
     {
-        string arg1 = string(argv[2]);
-        //TODO a different arg
-        //step_skip_amt = stoi(arg1);
+        string arg = string(argv[2]);
+        timescale = stod(arg);
     }
     if (argc >= 4)
     {
         string arg = string(argv[3]);
-        //TODO a different arg
+        prop_type = stoi(arg);
     }
     if (argc >= 5)
     {
         string arg = string(argv[4]);
-        restitution = stof(arg);
+        //TODO a different arg
     }
         
     glfwInit();
@@ -972,7 +998,7 @@ C:
     glCullFace(GL_BACK);
 
     Shader defaultShader("../../../../shaders/default.vs", "../../../../shaders/default.fs");
-    Shader shotShader("../../../../shaders/default.vs", "../../../../shaders/shot.fs");
+    Shader shotShader("../../../../shaders/default.vs", "../../../../shaders/soft_body.fs");
     Shader planetShader("../../../../shaders/default.vs", "../../../../shaders/planet.fs");
 
     
@@ -1006,6 +1032,26 @@ C:
     Better_glVertexAttribPointer(vtxAttributeIdx_Color, 3, GL_FLOAT, false, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     Better_glEnableVertexAttribArray(vtxAttributeIdx_Color);
 
+    // STUFF FOR SOFT CUBE TRIANGLE-DRAWING
+    // http://www.opengl-tutorial.org/beginners-tutorials/tutorial-2-the-first-triangle/
+    buffer_id_t VertexArrayID;
+    glGenVertexArrays(1, &VertexArrayID);
+    glBindVertexArray(VertexArrayID);
+    // An array of 3 vectors which represents 3 vertices
+    static const GLfloat g_vertex_buffer_data[] = {
+       -1.0f, -1.0f, 0.0f,
+       1.0f, -1.0f, 0.0f,
+       0.0f,  1.0f, 0.0f,
+    };
+    // This will identify our vertex buffer
+    buffer_id_t vertexbuffer;
+    // Generate 1 buffer, put the resulting identifier in vertexbuffer
+    glGenBuffers(1, &vertexbuffer);
+    // The following commands will talk about our 'vertexbuffer' buffer
+    glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
+    // Give our vertices to OpenGL.
+    glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
+
     // Set up vertex array object (VAO) and vertex buffers for planet
     buffer_id_t VAO_planet;
     glGenVertexArrays(1, &VAO_planet);
@@ -1032,27 +1078,17 @@ C:
 
 
     ///////////////////////////////////////////
-    //Options
-    double timescale = 0.1;
 
     vector<SoftCube*> bodies;
-    
-    for (int i = 0; i<ball_count; i++)
+
+    for (int i = -(ball_count / 2); i < ball_count - (ball_count / 2); i++)
     {
         bodies.push_back(new SoftCube);
-        bodies.back()->translate_verts(Vector3d{ i * 3.0, 0.0, 0.0 });
+        bodies.back()->translate_verts(Vector3d{ i * 3.0, 0.0, drop_height });
     }
 
 
     auto prevTime = std::chrono::high_resolution_clock::now();
-    /*for (auto ball : red_team)
-    {
-        ball->random_state();
-    }
-    for (auto ball : blue_team)
-    {
-        ball->random_state();
-    }*/
 
 
     int step_skip_itr = 0;
@@ -1156,31 +1192,122 @@ C:
         //    defaultShader.setFloat("age", 0);
         //    glDrawArrays(GL_TRIANGLES, 0, 24);
         //}
+        ///////////////////////////////////////////
+        //// Render shots
+        //shotShader.use();
+        //shotShader.setMat4("projection", projection);
+        //shotShader.setMat4("view", view);
+        //shotShader.setVec3("lightDir", lightDir);
+        //shotShader.setFloat("scale", 0.3f);
+        //glBindVertexArray(VAO_shot);
+        ////glBindVertexArray(meshes[0]->vao);
+
+        //for (auto body : bodies)
+        //{
+        //    Vector3d model_center = {0,0,0};
+        //    for (const auto& vert_pos : body->verts_pos)
+        //    {
+        //        model_center += vert_pos / body->verts_pos.size();
+        //    }
+
+        //    for (const auto& vert_pos : body->verts_pos)
+        //    {
+        //        auto scaled_pos = vert_pos / scale;
+        //        // Translate ball to its position and draw
+        //        model = glm::mat4(1.0f);
+        //        model = glm::translate(model, glm::vec3(scaled_pos.x(), scaled_pos.y(), scaled_pos.z()));
+        //        shotShader.setMat4("model", model);
+        //        shotShader.setVec3("model_center", glm::vec3(model_center.x(), model_center.y(), model_center.z()));
+        //        shotShader.setFloat("age", 100);
+        //        //defaultShader.setFloat("age", ball->age / timescale);
+        //        glDrawArrays(GL_TRIANGLES, 0, 24);
+        //    }
+        //}
         /////////////////////////////////////////
-        // Render shots
+        // Render soft cubes
         shotShader.use();
-        defaultShader.setMat4("projection", projection);
-        defaultShader.setMat4("view", view);
-        defaultShader.setVec3("lightDir", lightDir);
-        defaultShader.setFloat("scale", 0.1f);
+        shotShader.setMat4("projection", projection);
+        shotShader.setMat4("view", view);
+        shotShader.setVec3("lightDir", lightDir);
+        shotShader.setFloat("scale", 1.0f);
         glBindVertexArray(VAO_shot);
-        //glBindVertexArray(meshes[0]->vao);
+        
+        //// 1st attribute buffer : vertices
+        //glEnableVertexAttribArray(0);
+        //glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
+        //glVertexAttribPointer(
+        //    0,        // attribute 0. No particular reason for 0, but must match the layout in the shader.
+        //    3,        // size
+        //    GL_FLOAT, // type
+        //    GL_FALSE, // normalized?
+        //    0,        // stride
+        //    (void*)0  // array buffer offset
+        //);
 
         for (auto body : bodies)
         {
+            Vector3d model_center = { 0, 0, 0 };
             for (const auto& vert_pos : body->verts_pos)
             {
-                auto scaled_pos = vert_pos / scale;
+                model_center += vert_pos / scale / body->verts_pos.size();
+            }
+
+            for (const auto& tri : cube_triangles)
+            {
+                auto v1 = get<0>(tri);
+                auto v2 = get<1>(tri);
+                auto v3 = get<2>(tri);
+                auto scaled_pos1 = body->verts_pos[v1-1] / scale;
+                auto scaled_pos2 = body->verts_pos[v2-1] / scale;
+                auto scaled_pos3 = body->verts_pos[v3-1] / scale;
                 // Translate ball to its position and draw
                 model = glm::mat4(1.0f);
-                model = glm::translate(model, glm::vec3(scaled_pos.x(), scaled_pos.y(), scaled_pos.z()));
-                defaultShader.setMat4("model", model);
-                defaultShader.setFloat("age", 100);
-                //defaultShader.setFloat("age", ball->age / timescale);
-                glDrawArrays(GL_TRIANGLES, 0, 24);
+                //model = glm::translate(model, glm::vec3(scaled_pos.x(), scaled_pos.y(), scaled_pos.z()));
+                shotShader.setMat4("model", model);
+                //auto r_1_2 = scaled_pos2 - scaled_pos1;
+                //auto r_2_3 = scaled_pos3 - scaled_pos2;
+                //auto norm = r_1_2.cross(r_2_3);
+                shotShader.setVec3("model_center", glm::vec3(model_center.x(), model_center.y(), model_center.z()));
+
+
+                // update verts
+
+                // An array of 3 vectors which represents 3 vertices
+                GLfloat g_vertex_buffer_data_new[] = {
+                    scaled_pos1.x(),
+                    scaled_pos1.y(),
+                    scaled_pos1.z(),
+                    scaled_pos2.x(),
+                    scaled_pos2.y(),
+                    scaled_pos2.z(),
+                    scaled_pos3.x(),
+                    scaled_pos3.y(),
+                    scaled_pos3.z(),
+                };
+
+
+                // 1st attribute buffer : vertices
+                Better_glEnableVertexAttribArray(0);
+                //glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
+                updateBuffer(vertexbuffer, 0, g_vertex_buffer_data_new, sizeof(g_vertex_buffer_data_new), GL_ARRAY_BUFFER);
+                Better_glVertexAttribPointer(
+                    0,        // attribute 0. No particular reason for 0, but must match the layout in the shader.
+                    3,        // size
+                    GL_FLOAT, // type
+                    false,    // normalized?
+                    0,        // stride
+                    (void*)0  // array buffer offset
+                );
+                // Draw the triangle !
+                glDrawArrays(GL_TRIANGLES, 0, 3); // Starting from vertex 0; 3 vertices total -> 1 triangle
+                Better_glDisableVertexAttribArray(0);
             }
         }
-        /////////////////////////////////////////
+
+        ////// Draw the triangle !
+        //glDrawArrays(GL_TRIANGLES, 0, 3); // Starting from vertex 0; 3 vertices total -> 1 triangle
+        //glDisableVertexAttribArray(0);
+        ///////////////////////////////////////////
 
         
 
@@ -1211,55 +1338,6 @@ C:
             {
                 body->step(accumulated_dt);
             }
-
-            /*
-            //if (irl_elapsed < 0.3)
-            if (ballsSoFar < ball_count)
-            {
-                // Spawning new balls
-                for (int i = 0; i < 3; i++)
-                {
-                    ballsSoFar += 2;
-                    red_team.push_back(new Ball);
-                    red_team.back()->restitution = restitution;
-                    red_team.back()->moon = &moon;
-                    red_team.back()->pos = moon.pos;
-                    red_team.back()->vel = moon.vel;
-                    red_team.back()->random_bump();
-                    red_team.back()->red_team = &red_team;
-                    red_team.back()->blue_team = &blue_team;
-                    red_team.back()->shots = &shots;
-                    red_team.back()->team_is_blue = false;
-
-                    blue_team.push_back(new Ball);
-                    blue_team.back()->restitution = restitution;
-                    blue_team.back()->moon = &moon;
-                    blue_team.back()->pos = {3e6, 3e6, 3e6};
-                    blue_team.back()->vel = {0,0,0};
-                    blue_team.back()->random_bump();
-                    blue_team.back()->red_team = &red_team;
-                    blue_team.back()->blue_team = &blue_team;
-                    blue_team.back()->shots = &shots;
-                    blue_team.back()->team_is_blue = true;
-                }
-            }
-            for (auto ball : red_team)
-            {
-                if (!ball->dead)
-                    ball->step(accumulated_dt);
-            }
-            for (auto ball : blue_team)
-            {
-                if (!ball->dead)
-                    ball->step(accumulated_dt);
-            }
-            for (auto ball : shots)
-            {
-                if (!ball->dead)
-                    ball->step(accumulated_dt);
-            }
-            moon.step(accumulated_dt);
-            */
             
             accumulated_dt = 0;
         }
