@@ -104,6 +104,8 @@ static double drop_height = 2.0;
 static double springconst = 500.0; // N / m
 static double damperconst = 10;   // N / (m/s)
 
+static double init_delay_s = 8.0;
+
 
 
 void updateCamCoords()
@@ -1544,31 +1546,35 @@ C:
         irl_elapsed += dt_sec;
 
         auto dt_sim = dt_sec * timescale;
-        accumulated_dt += dt_sim;
-        sim_elapsed += dt_sim;
-        prevTime = nowTime;
-
-        if (++step_skip_itr == step_skip_amt)
+        if (irl_elapsed > init_delay_s)
         {
-            step_skip_itr = 0;
-
-            for (auto body : bodies)
+            accumulated_dt += dt_sim;
+            sim_elapsed += dt_sim;
+            if (++step_skip_itr == step_skip_amt)
             {
-                body->step(accumulated_dt);
+                step_skip_itr = 0;
+
+                for (auto body : bodies)
+                {
+                    body->step(accumulated_dt);
+                }
+
+                accumulated_dt = 0;
             }
-            
-            accumulated_dt = 0;
+
+            /*  if (irl_elapsed > 6)
+            {
+                irl_elapsed = 0;
+                sim_elapsed = 0;
+                for (auto ball : balls)
+                {
+                    ball->random_state();
+                }
+            }*/
         }
-            
-        /*  if (irl_elapsed > 6)
-        {
-            irl_elapsed = 0;
-            sim_elapsed = 0;
-            for (auto ball : balls)
-            {
-                ball->random_state();
-            }
-        }*/
+
+        
+        prevTime = nowTime;
                 
     }
 
