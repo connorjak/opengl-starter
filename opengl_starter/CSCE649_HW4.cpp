@@ -8,6 +8,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <set>
 //#include <glm/glm.hpp>
 //#include <glm/gtc/matrix_transform.hpp>
 //#include <glm/gtc/type_ptr.hpp>
@@ -418,376 +419,316 @@ static vector<Vector3d> planet_verts =
     { pr, 0, 0 },
     { 0, 0, -pr }};
 
-class RenderBall
+
+/*
+   5+----------+6
+   /          /|
+ 1+----------+ |
+  |         2| |
+  |          | |
+  | o7       | +8
+  |          |/
+ 3+----------+4
+
+     z
+     ^
+     |
+   7 o--->y
+    /
+    x
+*/
+
+
+class RenderSoftCube
 {
 public:
-    Vector3d pos = { 0, 0, 0 }; //m
-    Vector3d vel = { 0, 0, 0 }; //m/s
-    Matrix4d T_world_body = Matrix4d::Identity();
+    vector<Vector3d> verts_pos = {
+        { 1, 0, 1 }, //1
+        { 1, 1, 1 }, //2
+        { 1, 0, 0 }, //3
+        { 1, 1, 0 }, //4
+        { 0, 0, 1 }, //5
+        { 0, 1, 1 }, //6
+        { 0, 0, 0 }, //7
+        { 0, 1, 0 }  //8
+    }; //m
+    vector<Vector3d> verts_vel = {
+        { 0, 0, 0 }, //1
+        { 0, 0, 0 }, //2
+        { 0, 0, 0 }, //3
+        { 0, 0, 0 }, //4
+        { 0, 0, 0 }, //5
+        { 0, 0, 0 }, //6
+        { 0, 0, 0 }, //7
+        { 0, 0, 0 }  //8
+    }; //m/s
     
 public:
-    double getpos(int idx)
+    Vector3d vert_pos(int idx)
     {
-        return pos[idx] / scale;
+        return verts_pos[idx];
     }
 
-    double getvel(int idx)
+    Vector3d vert_vel(int idx)
     {
-        return vel[idx] / scale;
+        return verts_vel[idx];
     }
 
-    Matrix4d getrot()
+    void translate_verts(Vector3d offset)
     {
-        return T_world_body;    
+        for (auto& pos : verts_pos)
+        {
+            pos += offset;
+        }
+    }
+
+    void velocitate_verts(Vector3d deltaV)
+    {
+        for (auto& vel : verts_vel)
+        {
+            vel += deltaV;
+        }
+    }
+
+};
+
+struct Spring
+{
+    int v1;
+    int v2;
+    double unstretched_length;
+
+    bool operator ==(const Spring& rhs) const
+    {
+        return (v1 == rhs.v1 && v2 == rhs.v2 && unstretched_length == rhs.unstretched_length) ||
+               (v1 == rhs.v2 && v2 == rhs.v1 && unstretched_length == rhs.unstretched_length);
     }
 };
 
-class Ball : public RenderBall
+class SoftCube : public RenderSoftCube
 {
 public:
-    double restitution = 0.8; //Coefficient of restitution
-    Ball* moon = nullptr;
+    double springconst_edge = 100.0; // N / m
+    double springconst_compression = 100.0; // N / m
     float age = 0.0f;
-    bool dead = false;
-    bool team_is_blue = true;
-    Vector3d eased_accel = {0,0,0};
-
-    vector<Ball*>* red_team = nullptr;
-    vector<Ball*>* blue_team = nullptr;
-    vector<Ball*>* shots = nullptr;
-
-    float shot_cooldown = 0;
+    //bool dead = false;
+    
+    // Index of start vert, index of end vert, unstretched length
+    set<Spring> springs = {
+        // Front face
+        { 1, 2, 1.0 },
+        { 2, 3, 1.0 },
+        { 3, 4, 1.0 },
+        { 4, 1, 1.0 },
+        // Back face
+        { 1 + 4, 2 + 4, 1.0 },
+        { 2 + 4, 3 + 4, 1.0 },
+        { 3 + 4, 4 + 4, 1.0 },
+        { 4 + 4, 1 + 4, 1.0 },
+        // Left face
+        { 1, 5, 1.0 },
+        { 5, 7, 1.0 },
+        { 7, 3, 1.0 },
+        { 3, 1, 1.0 },
+        // Right face
+        { 1 + 1, 5 + 1, 1.0 },
+        { 5 + 1, 7 + 1, 1.0 },
+        { 7 + 1, 3 + 1, 1.0 },
+        { 3 + 1, 1 + 1, 1.0 },
+        // Top face
+        { 1, 2, 1.0 },
+        { 2, 6, 1.0 },
+        { 6, 5, 1.0 },
+        { 5, 1, 1.0 },
+        // Bottom face
+        { 1+2, 2+2, 1.0 },
+        { 2+2, 6+2, 1.0 },
+        { 6+2, 5+2, 1.0 },
+        { 5+2, 1+2, 1.0 }
+    };
 
 public:
-    void random_state()
-    {
-        std::random_device r;
-        // std::seed_seq ssq{r()};
-        // and then passing it to the engine does the same
-        std::default_random_engine eng{ r() };
-        std::uniform_real_distribution<double> distribution_r(8e6, 11e6);
-        std::uniform_real_distribution<double> distribution_theta(0, 2 * M_PI);
-        std::uniform_real_distribution<double> distribution_z(-2e6, 2e6);
-        //std::uniform_real_distribution<double> distribution_vxy(5000, 9000);
-        std::uniform_real_distribution<double> distribution_vtheta(7.6e3, 8.5e3);
-        std::uniform_real_distribution<double> distribution_vr(-300, 300);
-        std::uniform_real_distribution<double> distribution_vz(-2000, 2000);
+    //void random_state()
+    //{
+    //    std::random_device r;
+    //    // std::seed_seq ssq{r()};
+    //    // and then passing it to the engine does the same
+    //    std::default_random_engine eng{ r() };
+    //    std::uniform_real_distribution<double> distribution_r(8e6, 11e6);
+    //    std::uniform_real_distribution<double> distribution_theta(0, 2 * M_PI);
+    //    std::uniform_real_distribution<double> distribution_z(-2e6, 2e6);
+    //    //std::uniform_real_distribution<double> distribution_vxy(5000, 9000);
+    //    std::uniform_real_distribution<double> distribution_vtheta(7.6e3, 8.5e3);
+    //    std::uniform_real_distribution<double> distribution_vr(-300, 300);
+    //    std::uniform_real_distribution<double> distribution_vz(-2000, 2000);
 
-        /*
-          thetahat-\ /-rhat 
-                    X
-                |  /
-                | /  \
-                |/  Theta
-                x-----|---------
-        */
-       
-        double radius = distribution_r(eng);
-        double theta = distribution_theta(eng);
-        double z = distribution_z(eng);
+    //    /*
+    //      thetahat-\ /-rhat 
+    //                X
+    //            |  /
+    //            | /  \
+    //            |/  Theta
+    //            x-----|---------
+    //    */
+    //   
+    //    double radius = distribution_r(eng);
+    //    double theta = distribution_theta(eng);
+    //    double z = distribution_z(eng);
 
-        double rhat[3];
-        rhat[0] = std::cos(theta);
-        rhat[1] = std::sin(theta);
-        rhat[2] = 0;
-        double thetahat[3];
-        thetahat[0] = -std::sin(theta);
-        thetahat[1] = std::cos(theta);
-        thetahat[2] = 0;
+    //    double rhat[3];
+    //    rhat[0] = std::cos(theta);
+    //    rhat[1] = std::sin(theta);
+    //    rhat[2] = 0;
+    //    double thetahat[3];
+    //    thetahat[0] = -std::sin(theta);
+    //    thetahat[1] = std::cos(theta);
+    //    thetahat[2] = 0;
 
-        double vr = distribution_vr(eng);
-        double vtheta = distribution_vtheta(eng);
+    //    double vr = distribution_vr(eng);
+    //    double vtheta = distribution_vtheta(eng);
 
-        pos[0] = radius * rhat[0];
-        pos[1] = radius * rhat[1];
-        pos[2] = z;
+    //    pos[0] = radius * rhat[0];
+    //    pos[1] = radius * rhat[1];
+    //    pos[2] = z;
 
-        vel[0] = vr * rhat[0] + vtheta * thetahat[0];
-        vel[1] = vr * rhat[1] + vtheta * thetahat[1];
-        vel[2] = distribution_vz(eng);
-    }
+    //    vel[0] = vr * rhat[0] + vtheta * thetahat[0];
+    //    vel[1] = vr * rhat[1] + vtheta * thetahat[1];
+    //    vel[2] = distribution_vz(eng);
+    //}
 
-    void random_bump()
-    {
-        std::random_device r;
-        // std::seed_seq ssq{r()};
-        // and then passing it to the engine does the same
-        std::default_random_engine eng{ r() };
-        std::uniform_real_distribution<double> distribution_r(6.7e6 * 0.3, 7.5e6 * 0.3);
-        std::uniform_real_distribution<double> distribution_theta(0, 2 * M_PI);
-        std::uniform_real_distribution<double> distribution_phi(M_PI / 4, 3*M_PI / 4);
-        std::uniform_real_distribution<double> distribution_v(1000, 5000);
-        std::uniform_real_distribution<double> distribution_vz(-500, 500);
+    //void random_bump()
+    //{
+    //    std::random_device r;
+    //    // std::seed_seq ssq{r()};
+    //    // and then passing it to the engine does the same
+    //    std::default_random_engine eng{ r() };
+    //    std::uniform_real_distribution<double> distribution_r(6.7e6 * 0.3, 7.5e6 * 0.3);
+    //    std::uniform_real_distribution<double> distribution_theta(0, 2 * M_PI);
+    //    std::uniform_real_distribution<double> distribution_phi(M_PI / 4, 3*M_PI / 4);
+    //    std::uniform_real_distribution<double> distribution_v(1000, 5000);
+    //    std::uniform_real_distribution<double> distribution_vz(-500, 500);
 
-        double radius = distribution_r(eng);
-        double theta = distribution_theta(eng);
-        double phi = distribution_phi(eng);
+    //    double radius = distribution_r(eng);
+    //    double theta = distribution_theta(eng);
+    //    double phi = distribution_phi(eng);
 
-        double rhat[3];
-        rhat[0] = std::cos(theta) * std::sin(phi);
-        rhat[1] = std::sin(theta) * std::sin(phi);
-        rhat[2] = std::cos(phi);
+    //    double rhat[3];
+    //    rhat[0] = std::cos(theta) * std::sin(phi);
+    //    rhat[1] = std::sin(theta) * std::sin(phi);
+    //    rhat[2] = std::cos(phi);
 
-        pos[0] += radius * rhat[0];
-        pos[1] += radius * rhat[1];
-        pos[2] += radius * rhat[2];
+    //    pos[0] += radius * rhat[0];
+    //    pos[1] += radius * rhat[1];
+    //    pos[2] += radius * rhat[2];
 
-        for (int i = 0; i < 2; ++i)
-        {
-            double number = distribution_v(eng);
-            bool sign = randomBool();
-            if (sign)
-                vel[i] += number;
-            else
-                vel[i] -= number;
-        }
+    //    for (int i = 0; i < 2; ++i)
+    //    {
+    //        double number = distribution_v(eng);
+    //        bool sign = randomBool();
+    //        if (sign)
+    //            vel[i] += number;
+    //        else
+    //            vel[i] -= number;
+    //    }
 
-        double number = distribution_vz(eng);
-        vel[2] += number;
-    }
+    //    double number = distribution_vz(eng);
+    //    vel[2] += number;
+    //}
 
     void step(double dt)
     {
-        // Euler propagation
-        pos += vel * dt;
+        // For deferring actually moving until all verts' accels have been determined
+        vector<Vector3d> verts_accel = {
+            { 0, 0, 0 }, //1
+            { 0, 0, 0 }, //2
+            { 0, 0, 0 }, //3
+            { 0, 0, 0 }, //4
+            { 0, 0, 0 }, //5
+            { 0, 0, 0 }, //6
+            { 0, 0, 0 }, //7
+            { 0, 0, 0 }  //8
+        };               //m/s2
 
-        // Gather metrics
-        double vmag = vel.norm();
 
-        Vector3d vhat = vel.normalized();
-
-        // Distance and direction to center
-        double pmag = pos.norm();
-        Vector3d phat = pos.normalized();
-
-        if (pmag > 4e7)
-            dead = true;
-
-        //// interesting rotation
-        //T_world_body(seqN(0, 3), 0) = vhat;
-        //T_world_body(seqN(0, 3), 1) = vhat.cross(phat);
-        //T_world_body(seqN(0, 3), 2) = phat;
-        //T_world_body(3, 3) = 1;
-        
-        // Distance and direction for moon
-        Vector3d rpos;
-        double mpmag;
-        Vector3d mphat;
-        if (moon != nullptr)
+        for (int i = 0; i < 6; i++)
         {
-            rpos = pos - moon->pos;
-            mpmag = rpos.norm();
-            mphat = rpos.normalized();
+            auto& pos = verts_pos[i];
+            auto& vel = verts_vel[i];
+            // Euler propagation
+            pos += vel * dt;
+
+            // Gather metrics
+            double vmag = vel.norm();
+
+            Vector3d vhat = vel.normalized();
+
+            // Distance and direction to center
+            double pmag = pos.norm();
+            Vector3d phat = pos.normalized();
+
+            //if (pmag > 4e7)
+            //    dead = true;
+
+            //// Collision handling
+            //if(pmag < 6.2e6)
+            //{
+            //    for (size_t i = 0; i < planet_verts.size(); i += 3)
+            //    {
+            //        Vector3d v1 = planet_verts[i];
+            //        Vector3d v2 = planet_verts[i + 1];
+            //        Vector3d v3 = planet_verts[i + 2];
+
+            //        Vector3d v_1_2 = v2 - v1;
+            //        Vector3d v_2_3 = v3 - v2;
+
+            //        auto normal = v_1_2.cross(v_2_3).normalized();
+
+            //        // Avoid checking tris not on the same side as the particle
+            //        if (pos.dot(normal) <= 0)
+            //            continue;
+
+            //        if (BehindTriangle(v1,v2,v3,pos/scale))
+            //            dead = true;
+            //    }
+            //}
+            //if (moon != nullptr && mpmag < 6.2e6 * 0.3 * 0.6)
+            //{
+            //    dead = true;
+            //}
+
+            // Accelerations
+
+            //Vector3d cumulative_accel = { 0, 0, 0 };
+
+            //// Air drag
+            //double density = 0.1; //kg/m3
+            //double Cd = 0.4; //drag coefficient plus some other terms
+            //double drag_mag = 0.5 * density * vmag * vmag * Cd;
+            //vel[0] -= vhat[0] * drag_mag * dt;
+            //vel[1] -= vhat[1] * drag_mag * dt;
+            //vel[2] -= vhat[2] * drag_mag * dt;
+
+
+            auto& acc = verts_accel[i];
+            
+            acc = { 0, 0, 0 };
+
         }
 
 
-        //// Collision handling
-        //if(pmag < 6.2e6)
-        //{
-        //    for (size_t i = 0; i < planet_verts.size(); i += 3)
-        //    {
-        //        Vector3d v1 = planet_verts[i];
-        //        Vector3d v2 = planet_verts[i + 1];
-        //        Vector3d v3 = planet_verts[i + 2];
-
-        //        Vector3d v_1_2 = v2 - v1;
-        //        Vector3d v_2_3 = v3 - v2;
-
-        //        auto normal = v_1_2.cross(v_2_3).normalized();
-
-        //        // Avoid checking tris not on the same side as the particle
-        //        if (pos.dot(normal) <= 0)
-        //            continue;
-
-        //        if (BehindTriangle(v1,v2,v3,pos/scale))
-        //            dead = true;
-        //    }
-        //}
-        //if (moon != nullptr && mpmag < 6.2e6 * 0.3 * 0.6)
-        //{
-        //    dead = true;
-        //}
-
-        
-        // Accelerations
-       
-        Vector3d cumulative_accel = { 0, 0, 0 };
-
-        //// Air drag
-        //double density = 0.1; //kg/m3
-        //double Cd = 0.4; //drag coefficient plus some other terms
-        //double drag_mag = 0.5 * density * vmag * vmag * Cd;
-        //vel[0] -= vhat[0] * drag_mag * dt;
-        //vel[1] -= vhat[1] * drag_mag * dt;
-        //vel[2] -= vhat[2] * drag_mag * dt;
-
-
-        // Newton gravity around center
-        // f = G*m*M/r^2
-        // mu = G*m
-        // a = mu/r^2
-        /* double mu = 3.986004e14; // m^3/s^2
-        Vector3d ag_ = -(phat) * mu / (pmag * pmag);
-        cumulative_accel += ag_;
-
-        if (moon != nullptr)
+        // Propagation
+        for (int i = 0; i < 6; i++)
         {
-            // Newton gravity around moon
-            mu = 3.986004e14 * 0.3 * 0.3 * 0.3; // m^3/s^2
-            ag_ = -(mphat) * mu / (mpmag * mpmag);
-            cumulative_accel += ag_;
-        }*/
+            auto& pos = verts_pos[i];
+            auto& vel = verts_vel[i];
+            // Euler propagation
+            pos += vel * dt;
 
-        bool emergency_overdrive = false;
+            const auto& acc = verts_accel[i];
 
-        if (red_team && blue_team && age > 1)
-        {
-            auto friendly_team = red_team;
-            auto enemy_team = blue_team;
-            if (team_is_blue)
-            {
-                friendly_team = blue_team;
-                enemy_team = red_team;
-            }
-
-            // Attractor / Repeller
-            for (auto friendly : *friendly_team)
-            {
-                // No boids have exactly matching position
-                if (friendly->pos == pos)
-                    continue;
-
-                auto r_this_other = friendly->pos - pos;
-                auto dist = r_this_other.norm();
-                auto dist_scaled = dist / 1e6;
-                double strength = 1.0;
-
-                double inv2_effect = 1.0 / pow(dist_scaled, 2);
-                double inv3_effect = 1.0 / pow(dist_scaled/2, 3);
-
-                Vector3d attraction_accel = r_this_other.normalized() * strength * inv2_effect;
-                double attraction_accel_norm = attraction_accel.norm();
-                //cumulative_accel += attraction_accel;
-                Vector3d repeller_accel = -r_this_other.normalized() * strength * inv3_effect*10;
-                double repeller_accel_norm = repeller_accel.norm();
-                //cumulative_accel += repeller_accel;
-            }
-
-            // Attractor / Repeller
-            for (auto enemy : *enemy_team)
-            {
-                // No boids have exactly matching position
-                if (enemy->pos == pos)
-                    continue;
-
-                auto r_this_other = enemy->pos - pos;
-                auto dist = r_this_other.norm();
-                auto dist_scaled = dist / 1e6;
-                double strength = 1.0;
-
-                double inv2_effect = 1.0 / pow(dist_scaled, 2);
-                double inv3_effect = 1.0 / pow(dist_scaled/2, 3);
-
-                //auto attraction_accel = r_this_other.normalized() * strength * inv2_effect;
-                //cumulative_accel += attraction_accel;
-                Vector3d repeller_accel = -r_this_other.normalized() * strength * inv3_effect * 2;
-                double repeller_accel_norm = repeller_accel.norm();
-                cumulative_accel += repeller_accel;
-
-                // If close
-                if (dist < 5e6)
-                {
-                    // If other in field of view
-                    if ((r_this_other.normalized()).dot(vel.normalized()) > 0.5)
-                    {
-                        // accelerate so the velocity is pointed more towards the enemy
-                        Vector3d targeting_accel = 10 * (r_this_other.normalized() - vel.normalized());
-                        double targeting_accel_norm = targeting_accel.norm();
-                        cumulative_accel += targeting_accel;
-                    }
-
-                    // If lined up a shot, shoot
-                    if (shot_cooldown <= 0 && (r_this_other.normalized()).dot(vel.normalized()) > 0.98)
-                    {
-                        shots->push_back(new Ball);
-                        shots->back()->restitution = restitution;
-                        shots->back()->pos = pos;
-                        shots->back()->vel = vel.normalized() * 50000;
-                        /*shots->back()->red_team = red_team;
-                        shots->back()->blue_team = blue_team;*/
-                        shots->back()->shots = shots;
-                        shots->back()->team_is_blue = team_is_blue;
-                        shot_cooldown += 2000;
-                    }
-
-                    // If other is behind me and velocity pointed at me
-                    // (vec to enemy and negative velocity line up, and 
-                    //  vec from enemy and enemy's velocity line up)
-                    if ((r_this_other.normalized()).dot(-vel.normalized()) > 0.7 &&
-                        (-r_this_other.normalized()).dot(enemy->vel.normalized()) > 0.4)
-                    {
-                        emergency_overdrive = true;
-                        // accelerate so my velocity is pointed away from enemy's velocity
-                        Vector3d evading_accel = 50 * (vel.normalized()).cross(enemy->vel.normalized());
-                        double evading_accel_norm = evading_accel.norm();
-                        cumulative_accel += evading_accel;
-                    }
-                }
-
-                shot_cooldown -= dt;
-                if (shot_cooldown < 0)
-                    shot_cooldown = 0;
-                
-            }
-
-            // Keep things close together
-            if (pmag > 1.5e7)
-                cumulative_accel -= (phat * 10);
-
-            // Don't hit ground
-            if (pos(2) < -0.5)
-                cumulative_accel += Vector3d{0,0,20};
-
-            
-            // Stay somewhat low
-            cumulative_accel += Vector3d{ 0, 0, -1 };
-
-
-            // interesting rotation
-            auto x_pointing_dir = vhat;
-            auto acceleration_not_along_pointing = cumulative_accel - (cumulative_accel.dot(x_pointing_dir) * x_pointing_dir);
-            // Can only accelerate along non-pointing vector
-            auto accel_actual = acceleration_not_along_pointing.normalized() * cumulative_accel.norm();
-            //auto accel_actual = acceleration_not_along_pointing;
-
-            if (acceleration_not_along_pointing.norm() > 1.0 && accel_actual.norm() > 1.0)
-            {
-                eased_accel = eased_accel * 0.99 + accel_actual * 0.01;
-            }
-            //auto z_accel_dir = acceleration_not_along_pointing.normalized();
-            auto z_accel_dir = eased_accel.normalized();
-
-            T_world_body(seqN(0, 3), 0) = x_pointing_dir;
-            T_world_body(seqN(0, 3), 1) = z_accel_dir.cross(x_pointing_dir).normalized();
-            T_world_body(seqN(0, 3), 2) = z_accel_dir;
-            T_world_body(3, 3) = 1;
-
-            
-           vel += accel_actual * dt;
-
-            // non-physical velocity normalization
-            if (emergency_overdrive)
-            {
-                vel = vel.normalized() * 7000;
-            }
-            else
-            {
-                vel = vel.normalized() * 5000;
-            }
+            // Euler propagation
+            vel += acc * dt;
         }
-
-
-
         age += dt;
     }
 
@@ -1081,10 +1022,6 @@ C:
 
 
     
-    Ball moon;
-    vector<Ball*> red_team;
-    vector<Ball*> blue_team;
-    vector<Ball*> shots;
     /*for (int i = 0; i<ball_count; i++)
     {
         balls.push_back(new Ball);
@@ -1102,7 +1039,6 @@ C:
         ball->random_state();
     }*/
 
-    moon.random_state();
 
     int step_skip_itr = 0;
 
@@ -1176,6 +1112,7 @@ C:
         glBindVertexArray(VAO);
         //glBindVertexArray(meshes[0]->vao);
 
+        /*
         for (auto ball : red_team)
         {
             if (ball->dead)
@@ -1228,7 +1165,7 @@ C:
         }
         /////////////////////////////////////////
 
-
+        */
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -1253,6 +1190,7 @@ C:
         {
             step_skip_itr = 0;
 
+            /*
             //if (irl_elapsed < 0.3)
             if (ballsSoFar < ball_count)
             {
@@ -1299,7 +1237,7 @@ C:
                     ball->step(accumulated_dt);
             }
             moon.step(accumulated_dt);
-            
+            */
             
             accumulated_dt = 0;
         }
