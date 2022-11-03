@@ -32,7 +32,10 @@ namespace opengl_starter
                 glfwTerminate();
             }
 
-            spdlog::info("{}, {}", glGetString(GL_VERSION), glGetString(GL_RENDERER));
+            //spdlog::info("{}, {}", glGetString(GL_VERSION), glGetString(GL_RENDERER));
+            auto version_str = glGetString(GL_VERSION);
+            
+            spdlog::info("{}, {}", (const char*)(version_str), (const char*)(glGetString(GL_RENDERER)));
 
             glfwSetWindowUserPointer(window, this);
 
