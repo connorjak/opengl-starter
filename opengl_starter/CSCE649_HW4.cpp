@@ -101,6 +101,9 @@ static double timescale = 1.0;
 static int prop_type = 1;
 static double drop_height = 2.0;
 
+static double springconst = 500.0; // N / m
+static double damperconst = 10;   // N / (m/s)
+
 
 
 void updateCamCoords()
@@ -356,6 +359,13 @@ bool randomBool()
     return gen();
 }
 
+double randomDouble(double min, double max)
+{
+    std::random_device r;
+    static auto gen = std::bind(std::uniform_real_distribution<>(min, max), std::default_random_engine(r()));
+    return gen();
+}
+
 constexpr double scale = 5; // scale factor from sim units to render units
 
 /*
@@ -368,7 +378,7 @@ constexpr double scale = 5; // scale factor from sim units to render units
          x 2
 */
 //
-bool BehindTriangle(Vector3d v1, Vector3d v2, Vector3d v3, Vector3d pt)
+bool BehindTriangle(Vector3d v1, Vector3d v2, Vector3d v3, Vector3d pt, double& out_depth, Vector3d& out_normal)
 {
     Vector3d v_1_2 = v2 - v1;
     Vector3d v_2_3 = v3 - v2;
@@ -398,6 +408,9 @@ bool BehindTriangle(Vector3d v1, Vector3d v2, Vector3d v3, Vector3d pt)
     if (test3.dot(normal) < 0)
         return false;
 
+    // depth (positive behind triangle) is the negative projection of v 1->pt onto normal
+    out_depth = -v_1_pt.dot(normal);
+    out_normal = normal;
 
     return true;
 }
@@ -533,6 +546,7 @@ struct Spring
 };
 
 const double hypot_1_1 = sqrt(2.0);
+const double hypot_1_1_1 = sqrt(3.0);
 
 // Index of start vert, index of end vert, unstretched length.
 // Auto-deduplicates.
@@ -542,37 +556,43 @@ static const set<Spring> springs = {
     { 2, 4, 1.0 },
     { 4, 3, 1.0 },
     { 3, 1, 1.0 },
-    { 1, 4, hypot_1_1 },
+    //{ 1, 4, hypot_1_1 },
     // Back face
     { 1 + 4, 2 + 4, 1.0 },
     { 2 + 4, 4 + 4, 1.0 },
     { 4 + 4, 3 + 4, 1.0 },
     { 3 + 4, 1 + 4, 1.0 },
-    { 1 + 4, 4 + 4, hypot_1_1 },
+    //{ 1 + 4, 4 + 4, hypot_1_1 },
     // Left face
     { 1, 5, 1.0 },
     { 5, 7, 1.0 },
     { 7, 3, 1.0 },
     { 3, 1, 1.0 },
-    { 1, 7, hypot_1_1 },
+    //{ 1, 7, hypot_1_1 },
     // Right face
     { 1 + 1, 5 + 1, 1.0 },
     { 5 + 1, 7 + 1, 1.0 },
     { 7 + 1, 3 + 1, 1.0 },
     { 3 + 1, 1 + 1, 1.0 },
-    { 1 + 1, 7 + 1, hypot_1_1 },
+    //{ 1 + 1, 7 + 1, hypot_1_1 },
     // Top face
     { 1, 2, 1.0 },
     { 2, 6, 1.0 },
     { 6, 5, 1.0 },
     { 5, 1, 1.0 },
-    { 1, 6, hypot_1_1 },
+    //{ 1, 6, hypot_1_1 },
     // Bottom face
     { 1 + 2, 2 + 2, 1.0 },
     { 2 + 2, 6 + 2, 1.0 },
     { 6 + 2, 5 + 2, 1.0 },
     { 5 + 2, 1 + 2, 1.0 },
-    { 1 + 2, 6 + 2, hypot_1_1 },
+    //{ 1 + 2, 6 + 2, hypot_1_1 },
+
+    // Cross-volume
+    { 1, 8, hypot_1_1_1 },
+    { 2, 7, hypot_1_1_1 },
+    { 3, 6, hypot_1_1_1 },
+    { 4, 5, hypot_1_1_1 },
 };
 
 static const vector<tuple<int, int, int>> cube_triangles = {
@@ -599,14 +619,111 @@ static const vector<tuple<int, int, int>> cube_triangles = {
 class SoftCube : public RenderSoftCube
 {
 public:
-    double springconst = 100.0; // N / m
-    double damperconst = 5.0; // N / (m/s)
     float age = 0.0f;
-
+    vector<SoftCube*>* others;
     double vert_mass = 0.4; //kg
     
 public:
 
+    Vector3d get_accel_for_state(int vert_idx, VectorXd X)
+    {
+        //auto& pos = verts_pos[i];
+        //auto& vel = verts_vel[vert_idx];
+        auto pos = X.head(3);
+        auto vel = X.tail(3);
+        Vector3d acc = { 0, 0, 0 };
+
+        // Gather metrics
+        double vmag = vel.norm();
+
+        Vector3d vhat = vel.normalized();
+
+        // Distance and direction to center
+        double pmag = pos.norm();
+        Vector3d phat = pos.normalized();
+
+        //// Collision handling
+        //if(pmag < 6.2e6)
+        //{
+        //    for (size_t i = 0; i < planet_verts.size(); i += 3)
+        //    {
+        //        Vector3d v1 = planet_verts[i];
+        //        Vector3d v2 = planet_verts[i + 1];
+        //        Vector3d v3 = planet_verts[i + 2];
+
+        //        Vector3d v_1_2 = v2 - v1;
+        //        Vector3d v_2_3 = v3 - v2;
+
+        //        auto normal = v_1_2.cross(v_2_3).normalized();
+
+        //        // Avoid checking tris not on the same side as the particle
+        //        if (pos.dot(normal) <= 0)
+        //            continue;
+
+        //        if (BehindTriangle(v1,v2,v3,pos/scale))
+        //            dead = true;
+        //    }
+        //}
+
+        // Accelerations
+
+        //// Air drag
+        //double density = 0.1; //kg/m3
+        //double Cd = 0.4; //drag coefficient plus some other terms
+        //double drag_mag = 0.5 * density * vmag * vmag * Cd;
+        //vel[0] -= vhat[0] * drag_mag * dt;
+        //vel[1] -= vhat[1] * drag_mag * dt;
+        //vel[2] -= vhat[2] * drag_mag * dt;
+
+        // Vertical Gravity
+        acc += Vector3d{ 0, 0, -9.8 };
+
+        // Spring/Damper forces
+        for (const auto& spring : springs)
+        {
+            // Index of spring start
+            auto v1 = spring.v1 - 1;
+            auto v2 = spring.v2 - 1;
+            if (v1 != vert_idx && v2 != vert_idx)
+                continue;
+
+            Vector3d other_vert_pos;
+            Vector3d other_vert_vel;
+            if (v1 == vert_idx)
+            {
+                other_vert_pos = verts_pos[v2];
+                other_vert_vel = verts_vel[v2];
+            }
+            else
+            {
+                other_vert_pos = verts_pos[v1];
+                other_vert_vel = verts_vel[v1];
+            }
+
+            // Spring Forces
+            auto r_me_to_other = other_vert_pos - pos;
+            auto current_length = r_me_to_other.norm();
+            auto deflection = current_length - spring.unstretched_length;
+            auto rhat_me_to_other = r_me_to_other.normalized();
+            // Positive for a stretched spring, negative for compressed
+            auto spring_force_mag = deflection * springconst;
+            // Force on this vert due to spring
+            auto spring_force_on_me = spring_force_mag * rhat_me_to_other;
+            acc += spring_force_on_me / vert_mass;
+
+            // Damper Forces
+            auto v_me_rel_to_other = other_vert_vel - vel;
+            auto radial_vel_me_towards_other = v_me_rel_to_other.dot(rhat_me_to_other);
+            // Positive for a vel towards, negative for vel away
+            auto damper_force_mag = radial_vel_me_towards_other * damperconst;
+            // Force on this vert due to damper
+            auto damper_force_on_me = damper_force_mag * (rhat_me_to_other);
+            acc += damper_force_on_me / vert_mass;
+        }
+
+
+        return acc;
+    }
 
     void step(double dt)
     {
@@ -638,9 +755,6 @@ public:
             double pmag = pos.norm();
             Vector3d phat = pos.normalized();
 
-            //if (pmag > 4e7)
-            //    dead = true;
-
             //// Collision handling
             //if(pmag < 6.2e6)
             //{
@@ -663,72 +777,13 @@ public:
             //            dead = true;
             //    }
             //}
-            //if (moon != nullptr && mpmag < 6.2e6 * 0.3 * 0.6)
-            //{
-            //    dead = true;
-            //}
+
+            VectorXd X(6);
+            X.head(3) = pos;
+            X.tail(3) = vel;
 
             // Accelerations
-            acc = { 0, 0, 0 };
-
-
-            //// Air drag
-            //double density = 0.1; //kg/m3
-            //double Cd = 0.4; //drag coefficient plus some other terms
-            //double drag_mag = 0.5 * density * vmag * vmag * Cd;
-            //vel[0] -= vhat[0] * drag_mag * dt;
-            //vel[1] -= vhat[1] * drag_mag * dt;
-            //vel[2] -= vhat[2] * drag_mag * dt;
-
-
-            // Vertical Gravity
-            acc += Vector3d{0, 0, -9.8};
-            
-            // Spring/Damper forces
-            for (const auto& spring : springs)
-            {
-                // Index of spring start
-                auto v1 = spring.v1 - 1;
-                auto v2 = spring.v2 - 1;
-                if (v1 != i && v2 != i)
-                    continue;
-
-                Vector3d other_vert_pos;
-                Vector3d other_vert_vel;
-                if (v1 == i)
-                {
-                    other_vert_pos = verts_pos[v2];
-                    other_vert_vel = verts_vel[v2];
-                }
-                else
-                {
-                    other_vert_pos = verts_pos[v1];
-                    other_vert_vel = verts_vel[v1];
-                }
-
-                // Spring Forces
-                auto r_me_to_other = other_vert_pos - pos;
-                auto current_length = r_me_to_other.norm();
-                auto deflection = current_length - spring.unstretched_length;
-                auto rhat_me_to_other = r_me_to_other.normalized();
-                // Positive for a stretched spring, negative for compressed
-                auto spring_force_mag = deflection * springconst;
-                // Force on this vert due to spring
-                auto spring_force_on_me = spring_force_mag * rhat_me_to_other;
-                acc += spring_force_on_me / vert_mass;
-
-                // Damper Forces
-                auto v_me_rel_to_other = other_vert_vel - vel;
-                auto radial_vel_me_towards_other = v_me_rel_to_other.dot(rhat_me_to_other);
-                // Positive for a vel towards, negative for vel away
-                auto damper_force_mag = radial_vel_me_towards_other * damperconst;
-                // Force on this vert due to damper
-                auto damper_force_on_me = damper_force_mag * (rhat_me_to_other);
-                acc += damper_force_on_me / vert_mass;
-            }
-
-
-
+            acc = get_accel_for_state(i, X);
         }
 
 
@@ -738,6 +793,132 @@ public:
             auto& pos = verts_pos[i];
             auto& vel = verts_vel[i];
             
+            //Collision with others
+            for (auto other : *others)
+            {
+                if (other == this)
+                    continue;
+
+                Vector3d avg_pos{ 0, 0, 0 };
+                Vector3d avg_pos_other{ 0, 0, 0 };
+                for (auto& vp : verts_pos)
+                {
+                    avg_pos += vp / verts_pos.size();
+                }
+                for (auto& vp : other->verts_pos)
+                {
+                    avg_pos_other += vp / verts_pos.size();
+                }
+
+                auto r_avgs = avg_pos_other - avg_pos;
+                if (r_avgs.norm() < 0.9)
+                {
+                    //We're inside another; depenetrate
+                    /*for (auto& v_v : verts_vel)
+                        {
+                            v_v += dt * r_avgs.normalized() * 2.0;
+                        }*/
+                    for (auto& v_v : verts_vel)
+                    {
+                        v_v -= dt * r_avgs.normalized() * 20.0;
+                    }
+                }
+
+                for (const auto& tri : cube_triangles)
+                {
+                    auto v1 = get<0>(tri);
+                    auto v2 = get<1>(tri);
+                    auto v3 = get<2>(tri);
+                    const auto& pos1 = other->verts_pos[v1 - 1];
+                    const auto& pos2 = other->verts_pos[v2 - 1];
+                    const auto& pos3 = other->verts_pos[v3 - 1];
+
+                    double depth = 0.0;
+                    Vector3d tri_normal;
+
+                    if (BehindTriangle(pos1, pos2, pos3, pos, depth, tri_normal))
+                    {
+                        // Not too far behind that triangle
+                        if (depth < 0.3)
+                        {
+                            // Collide with that triangle
+                            // Velocity into collision is projection of this vert's velocity onto normal
+
+                            auto collision_vel = vel.dot(tri_normal) * tri_normal;
+
+                            //depenetrate
+                            pos += depth * tri_normal * 0.5;
+
+                            other->verts_pos[v1 - 1] -= depth * tri_normal * 0.5 / 3;
+                            other->verts_pos[v2 - 1] -= depth * tri_normal * 0.5 / 3;
+                            other->verts_pos[v3 - 1] -= depth * tri_normal * 0.5 / 3;
+
+                            // neutralize vel
+                            vel -= collision_vel;
+
+                            // impart momentum on triangle
+                            other->verts_vel[v1 - 1] += collision_vel / 3;
+                            other->verts_vel[v2 - 1] += collision_vel / 3;
+                            other->verts_vel[v3 - 1] += collision_vel / 3;
+                        }
+                    }
+                }
+            }
+
+            // "Floor" collision
+            // TODO can apply surface friction based on time during tick spent on surface
+            double floor_height = -1;
+            if (pos.z() < floor_height)
+            {
+                pos.z() = floor_height;
+                if (vel.z() < 0)
+                    vel.z() = 0;
+
+                // Fake friction
+                vel.x() *= 0.6;
+                vel.y() *= 0.6;
+            }
+            if (pos.x() < -3.1)
+            {
+                pos.x() = -3.1;
+                if (vel.x() < 0)
+                    vel.x() = 0;
+
+                // Fake friction
+                vel.z() *= 0.6;
+                vel.y() *= 0.6;
+            }
+            if (pos.x() > 3.1)
+            {
+                pos.x() = 3.1;
+                if (vel.x() > 0)
+                    vel.x() = 0;
+
+                // Fake friction
+                vel.z() *= 0.6;
+                vel.y() *= 0.6;
+            }
+            if (pos.y() < -3.1)
+            {
+                pos.y() = -3.1;
+                if (vel.y() < 0)
+                    vel.y() = 0;
+
+                // Fake friction
+                vel.z() *= 0.6;
+                vel.x() *= 0.6;
+            }
+            if (pos.y() > 3.1)
+            {
+                pos.y() = 3.1;
+                if (vel.y() > 0)
+                    vel.y() = 0;
+
+                // Fake friction
+                vel.z() *= 0.6;
+                vel.x() *= 0.6;
+            }
+
             if (prop_type == 1)
             {
                 // Euler propagation
@@ -750,19 +931,48 @@ public:
             }
             else //RK4
             {
+                //// RK4 propagation
+                ////http://spiff.rit.edu/richmond/nbody/OrbitRungeKutta4.pdf
+
+                ////rdot = v
+                ////vdot = a
+                //auto k1v = get_accel_for_pos(i, pos);
+                //auto k2v = get_accel_for_pos(i, pos + k1v * dt/2);
+                //auto k3v = get_accel_for_pos(i, pos + k2v * dt/2);
+                //auto k4v = get_accel_for_pos(i, pos + k3v * dt);
+
+                //auto k1r = vel;
+                //auto k2r = vel.norm() * k1v * dt / 2;
+                //auto k3r = vel.norm() * k2v * dt / 2;
+                //auto k4r = vel.norm() * k3v * dt;
+
+                //vel = vel + (dt / 6) * (k1v + 2 * k2v + 2 * k3v + k4v);
+                //pos = pos + (dt / 6) * (k1r + 2 * k2r + 2 * k3r + k4r);
+
+
                 // RK4 propagation
-            }
+                //https://scicomp.stackexchange.com/a/19022
 
-            
+                //rdot = v
+                //vdot = a
 
-            // "Floor" collision
-            // TODO can apply surface friction based on time during tick spent on surface
-            double floor_height = -1;
-            if (pos.z() < floor_height)
-            {
-                pos.z() = floor_height;
-                if (vel.z() < 0)
-                    vel.z() = 0;
+                VectorXd X(6);
+                X.head(3) = pos;
+                X.tail(3) = vel;
+
+                VectorXd k1(6);
+                VectorXd k2(6);
+                VectorXd k3(6);
+                VectorXd k4(6);
+                k1 << vel, get_accel_for_state(i, X);
+                k2 << vel, get_accel_for_state(i, X + k1 * dt / 2);
+                k3 << vel, get_accel_for_state(i, X + k2 * dt / 2);
+                k4 << vel, get_accel_for_state(i, X + k3 * dt);
+
+                X = X + (dt / 6) * (k1 + 2 * k2 + 2 * k3 + k4);
+
+                pos = X.head(3);
+                vel = X.tail(3);
             }
         }
         age += dt;
@@ -945,7 +1155,7 @@ int main(int argc, char* argv[])
     if (argc >= 5)
     {
         string arg = string(argv[4]);
-        //TODO a different arg
+        damperconst = stod(arg);
     }
         
     glfwInit();
@@ -1081,12 +1291,20 @@ C:
 
     vector<SoftCube*> bodies;
 
-    for (int i = -(ball_count / 2); i < ball_count - (ball_count / 2); i++)
+    //for (int i = -(ball_count / 2); i < ball_count - (ball_count / 2); i++)
+    //{
+    //    bodies.push_back(new SoftCube);
+    //    bodies.back()->translate_verts(Vector3d{ i * 3.0, 0.0, drop_height });
+    //    bodies.back()->others = &bodies;
+    //}
+
+    //Spawning
+    for (int i = 0; i < ball_count; i++)
     {
         bodies.push_back(new SoftCube);
-        bodies.back()->translate_verts(Vector3d{ i * 3.0, 0.0, drop_height });
+        bodies.back()->translate_verts(Vector3d{ randomDouble(-1, 1), randomDouble(-1, 1), drop_height + i * 2.0 });
+        bodies.back()->others = &bodies;
     }
-
 
     auto prevTime = std::chrono::high_resolution_clock::now();
 
