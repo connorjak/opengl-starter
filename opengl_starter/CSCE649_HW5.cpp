@@ -9,6 +9,7 @@
 #include <fstream>
 #include <sstream>
 #include <set>
+#include <algorithm>
 //#include <glm/glm.hpp>
 //#include <glm/gtc/matrix_transform.hpp>
 //#include <glm/gtc/type_ptr.hpp>
@@ -101,9 +102,6 @@ static double timescale = 1.0;
 static int prop_type = 1;
 static int shape = 1;
 static double drop_height = 2.0;
-
-static double springconst = 500.0; // N / m
-static double damperconst = 10;   // N / (m/s)
 
 static double init_delay_s = 1;
 
@@ -510,12 +508,12 @@ public:
         {
         
             bodyframe_verts_pos = {
-                { cube_radius, -cube_radius, cube_radius },   //1
+                { 2*cube_radius, -cube_radius, cube_radius },   //1
                 { cube_radius, cube_radius, cube_radius },    //2
-                { cube_radius, -cube_radius, -cube_radius },  //3
+                { cube_radius, -cube_radius, -2 * cube_radius }, //3
                 { cube_radius, cube_radius, -cube_radius },   //4
                 { -cube_radius, -cube_radius, cube_radius },  //5
-                { -cube_radius, cube_radius, cube_radius },   //6
+                { -cube_radius, 2*cube_radius, cube_radius },   //6
                 { -cube_radius, -cube_radius, -cube_radius }, //7
                 { -cube_radius, cube_radius, -cube_radius }   //8
             };                                                //m
@@ -531,21 +529,21 @@ public:
         case 2:
         {
             bodyframe_verts_pos = {
-                { 2*cube_radius, -cube_radius, cube_radius },   //1
-                { 2*cube_radius, cube_radius, cube_radius },    //2
-                { 2*cube_radius, -cube_radius, -cube_radius },  //3
-                { 2 * cube_radius, cube_radius, -cube_radius },  //4
-                { -2*cube_radius, -cube_radius, cube_radius },  //5
-                { -2*cube_radius, cube_radius, cube_radius },   //6
-                { -2*cube_radius, -cube_radius, -cube_radius }, //7
-                { -2*cube_radius, cube_radius, -cube_radius }   //8
+                { 3*cube_radius, -cube_radius, cube_radius },   //1
+                { 3*cube_radius, cube_radius, cube_radius },    //2
+                { 3*cube_radius, -cube_radius, -cube_radius },  //3
+                { 3 * cube_radius, cube_radius, -cube_radius },  //4
+                { -3*cube_radius, -cube_radius, cube_radius },  //5
+                { -3*cube_radius, cube_radius, cube_radius },   //6
+                { -3*cube_radius, -cube_radius, -cube_radius }, //7
+                { -3*cube_radius, cube_radius, -cube_radius }   //8
             };                                                //m
 
             double i11 = mass * pow(cube_radius * 2, 2) / 6.0;
 
             Inertia << i11, 0, 0,
-                0, 2*i11, 0,
-                0, 0, 2*i11;
+                0, 3*i11, 0,
+                0, 0, 3*i11;
         }
             break;
         }
@@ -649,6 +647,8 @@ public:
 
         double collision_impulse = (-1 - restitution) * diverging_vel / interim1;
 
+        if (collision_impulse > 10)
+            collision_impulse = std::min(collision_impulse, vel.norm() * mass * 5);
 
         impulse(self_contact_pt_body, collision_impulse * other_face_normal);
         other->impulse(other_contact_pt_body, collision_impulse * (-other_face_normal));
@@ -700,6 +700,8 @@ public:
 
         double collision_impulse = (-1 - restitution) * diverging_vel / interim1;
 
+        collision_impulse = std::min(collision_impulse, vel.norm() * mass * 5);
+
         impulse(self_contact_pt_body, collision_impulse * other_face_normal);
         //other->impulse(other_contact_pt_body, (1 + restitution) * collision_impulse * (-other_face_normal));
 
@@ -722,88 +724,13 @@ public:
         // r x f = I a
         // r x i = I w
         angvel += I_world.inverse() * offset_world.cross(add_momentum_world);
-    }
 
-};
-
-struct Spring
-{
-    // 1-indexed start vertex
-    int v1;
-    // 1-indexed end vertex
-    int v2;
-    double unstretched_length;
-
-    //// Springs can be deduplicated
-    //bool operator ==(const Spring& rhs) const
-    //{
-    //    return (v1 == rhs.v1 && v2 == rhs.v2 && unstretched_length == rhs.unstretched_length) ||
-    //           (v1 == rhs.v2 && v2 == rhs.v1 && unstretched_length == rhs.unstretched_length);
-    //}
-
-    // Springs can be deduplicated
-    bool operator<(const Spring& rhs) const
-    {
-        bool vertices_match = (v1 == rhs.v1 && v2 == rhs.v2) ||
-                              (v1 == rhs.v2 && v2 == rhs.v1);
-        if (vertices_match)
+        if (angvel.norm() > 10)
         {
-            return unstretched_length < rhs.unstretched_length;
+            angvel *= 10.0 / angvel.norm();
         }
-
-        return std::tie(v1, v2, unstretched_length) < std::tie(rhs.v1, rhs.v2, rhs.unstretched_length);
     }
 
-};
-
-const double hypot_1_1 = sqrt(2.0);
-const double hypot_1_1_1 = sqrt(3.0);
-
-// Index of start vert, index of end vert, unstretched length.
-// Auto-deduplicates.
-static const set<Spring> springs = {
-    // Front face
-    { 1, 2, 1.0 },
-    { 2, 4, 1.0 },
-    { 4, 3, 1.0 },
-    { 3, 1, 1.0 },
-    //{ 1, 4, hypot_1_1 },
-    // Back face
-    { 1 + 4, 2 + 4, 1.0 },
-    { 2 + 4, 4 + 4, 1.0 },
-    { 4 + 4, 3 + 4, 1.0 },
-    { 3 + 4, 1 + 4, 1.0 },
-    //{ 1 + 4, 4 + 4, hypot_1_1 },
-    // Left face
-    { 1, 5, 1.0 },
-    { 5, 7, 1.0 },
-    { 7, 3, 1.0 },
-    { 3, 1, 1.0 },
-    //{ 1, 7, hypot_1_1 },
-    // Right face
-    { 1 + 1, 5 + 1, 1.0 },
-    { 5 + 1, 7 + 1, 1.0 },
-    { 7 + 1, 3 + 1, 1.0 },
-    { 3 + 1, 1 + 1, 1.0 },
-    //{ 1 + 1, 7 + 1, hypot_1_1 },
-    // Top face
-    { 1, 2, 1.0 },
-    { 2, 6, 1.0 },
-    { 6, 5, 1.0 },
-    { 5, 1, 1.0 },
-    //{ 1, 6, hypot_1_1 },
-    // Bottom face
-    { 1 + 2, 2 + 2, 1.0 },
-    { 2 + 2, 6 + 2, 1.0 },
-    { 6 + 2, 5 + 2, 1.0 },
-    { 5 + 2, 1 + 2, 1.0 },
-    //{ 1 + 2, 6 + 2, hypot_1_1 },
-
-    // Cross-volume
-    { 1, 8, hypot_1_1_1 },
-    { 2, 7, hypot_1_1_1 },
-    { 3, 6, hypot_1_1_1 },
-    { 4, 5, hypot_1_1_1 },
 };
 
 static const vector<tuple<int, int, int>> cube_triangles = {
@@ -972,7 +899,7 @@ public:
                 if (other->dead)
                     continue;
 
-                double bounds_radius = sqrt(3.0 * cube_radius * cube_radius);
+                double bounds_radius = sqrt(3.0 * 2 * cube_radius * 2 * cube_radius);
 
                 Vector3d offset = pos - other->pos;
 
