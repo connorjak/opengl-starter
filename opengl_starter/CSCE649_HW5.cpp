@@ -801,6 +801,7 @@ public:
     float age = 0.0f;
     vector<RigidCube*>* others;
     double vert_mass = 0.4; //kg
+    bool dead = false;
     
 public:
 
@@ -863,12 +864,18 @@ public:
 
     void step(double dt)
     {   
+        if (dead)
+            return;
+
         VectorXd X_0(6);
         X_0.head(3) = pos;
         X_0.tail(3) = vel;
         // Accelerations
         auto acc = get_accel_for_state(0, X_0);
 
+
+        if (pos.norm() > 1000)
+            dead = true;
 
         //// 
         //for (int i = 0; i < bodyframe_verts_pos.size(); i++)
@@ -928,6 +935,9 @@ public:
             for (auto other : *others)
             {
                 if (other == this)
+                    continue;
+
+                if (other->dead)
                     continue;
 
                 double bounds_radius = sqrt(3.0 * cube_radius * cube_radius);
@@ -1403,7 +1413,7 @@ C:
         bodies.push_back(new RigidCube);
         bodies.back()->init();
         bodies.back()->translate(Vector3d{ randomDouble(-1, 1), randomDouble(-1, 1), drop_height + i * 2.0 });
-        bodies.back()->velocitate(Vector3d{ randomDouble(-10, 10), randomDouble(-10, 10), 0 });
+        bodies.back()->velocitate(Vector3d{ randomDouble(-3000, 3000), randomDouble(-3000, 3000), 0 });
         AngleAxisd rot_shift;
         rot_shift = AngleAxisd(randomDouble(-1, 1), Vector3d{ randomDouble(-1, 1), randomDouble(-1, 1), randomDouble(-1, 1) });
         bodies.back()->rotate(Quaterniond(rot_shift));
