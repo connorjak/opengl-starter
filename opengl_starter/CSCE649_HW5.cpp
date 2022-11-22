@@ -95,7 +95,7 @@ static float camZ = 0.0;
 
 // Options
 static int step_skip_amt = 1; //how many graphics steps per physics step
-static int ball_count = 1;
+static int ball_count = 5;
 static double timescale = 1.0;
 // 1 for Euler, 2 for RK4
 static int prop_type = 1;
@@ -106,7 +106,30 @@ static double damperconst = 10;   // N / (m/s)
 
 static double init_delay_s = 1;
 
+static Quaterniond PropagateQuat(Eigen::Quaterniond state, Eigen::Vector3d angVel, double timeElapsedSec)
+{
+	timeElapsedSec *= -1;
 
+	double q0 = state.w();
+	double q1 = state.x();
+	double q2 = state.y();
+	double q3 = state.z();
+
+	double wx = angVel.x();
+	double wy = angVel.y();
+	double wz = angVel.z();
+
+	double Quat0 = q0;
+	double Quat1 = q1;
+	double Quat2 = q2;
+	double Quat3 = q3;
+	Quat0 += 0.5 * ((-q1 * wx) - (q2 * wy) - (q3 * wz)) * timeElapsedSec;
+	Quat1 += 0.5 * ((q0 * wx) - (q3 * wy) + (q2 * wz)) * timeElapsedSec;
+	Quat2 += 0.5 * ((q3 * wx) + (q0 * wy) - (q1 * wz)) * timeElapsedSec;
+	Quat3 += 0.5 * ((-q2 * wx) + (q1 * wy) + (q0 * wz)) * timeElapsedSec;
+
+	return Eigen::Quaterniond(Quat0, Quat1, Quat2, Quat3).normalized();
+}
 
 void updateCamCoords()
 {
@@ -463,32 +486,33 @@ static vector<Vector3d> planet_verts =
     x
 */
 
+static double cube_radius = 0.5;
 
 class RenderRigidCube
 {
 public:
     vector<Vector3d> bodyframe_verts_pos = {
-        { 1, 0, 1 }, //1
-        { 1, 1, 1 }, //2
-        { 1, 0, 0 }, //3
-        { 1, 1, 0 }, //4
-        { 0, 0, 1 }, //5
-        { 0, 1, 1 }, //6
-        { 0, 0, 0 }, //7
-        { 0, 1, 0 }  //8
+        { cube_radius, -cube_radius, cube_radius }, //1
+        { cube_radius, cube_radius, cube_radius }, //2
+        { cube_radius, -cube_radius, -cube_radius }, //3
+        { cube_radius, cube_radius, -cube_radius }, //4
+        { -cube_radius, -cube_radius, cube_radius }, //5
+        { -cube_radius, cube_radius, cube_radius }, //6
+        { -cube_radius, -cube_radius, -cube_radius }, //7
+        { -cube_radius, cube_radius, -cube_radius }  //8
     }; //m
     Vector3d pos = { 0, 0, 0 }; //m, world coords
     Vector3d vel = { 0, 0, 0 }; //m/s, world coords
     Quaterniond rot = Quaterniond(1, 0, 0, 0); //Passive Hamilton quat, world coords
     Vector3d angvel = { 0, 0, 0 }; //rad/s, world coords
     Matrix3d Inertia; // body coords
-    double mass = 1.0; //kg
-    double restitution = 0.9; 
+    double mass = 1000.0; //kg
+    double restitution = 0.2; 
     
 public:
     void init()
     {
-        double i11 = mass * 2.0 / 6.0;
+        double i11 = mass * pow(cube_radius * 2, 2) / 6.0;
 
         Inertia << i11, 0, 0,
             0, i11, 0,
@@ -498,7 +522,7 @@ public:
     Vector3d vert_world_pos(int idx)
     {
         auto T_world_body = rot.toRotationMatrix();
-        return T_world_body.transpose() * bodyframe_verts_pos[idx];
+        return T_world_body.transpose() * bodyframe_verts_pos[idx] + pos;
     }
 
     void translate(Vector3d offset)
@@ -506,15 +530,30 @@ public:
         pos += offset;
     }
 
+    void rotate(Quaterniond offset)
+    {
+        rot *= offset;
+    }
+
     void velocitate(Vector3d deltaV)
     {
         vel += deltaV;
+    }
+
+    void angvelocitate(Vector3d deltaAngV)
+    {
+        angvel += deltaAngV;
     }
 
     Vector3d pt_world_to_body(Vector3d r_world)
     {
         auto T_world_body = rot.toRotationMatrix();
         return T_world_body * (r_world - pos);
+    }
+
+    Vector3d pt_world_to_bodycentered(Vector3d r_world)
+    {
+        return r_world - pos;
     }
 
     Vector3d pt_body_to_world(Vector3d r_body)
@@ -525,44 +564,114 @@ public:
 
     Vector3d world_vel_at_body_pt(Vector3d r_body)
     {
-        return vel + angvel.cross(r_body);
+        auto T_world_body = rot.toRotationMatrix();
+        Vector3d r_pt_world = T_world_body.transpose() * r_body;
+        return vel + angvel.cross(r_pt_world);
     }
 
-    void collide(RenderRigidCube* other, Vector3d contact_pt_world)
+    //https://www.cs.utah.edu/~ladislav/kavan03rigid/kavan03rigid.pdf
+    void collide(RenderRigidCube* other, Vector3d contact_pt_world, Vector3d other_face_normal)
     {
+        // Position of contact point in body coords
         Vector3d self_contact_pt_body = pt_world_to_body(contact_pt_world);
         Vector3d other_contact_pt_body = other->pt_world_to_body(contact_pt_world);
 
+        // Velocity of contact point in world coords
         Vector3d self_contact_vel_world = world_vel_at_body_pt(self_contact_pt_body);
         Vector3d other_contact_vel_world = other->world_vel_at_body_pt(other_contact_pt_body);
 
-        // Enforce linear consv of momentum
+        // Relative velocity between contact points
         Vector3d vel_self_rel_to_other_at_contact = self_contact_vel_world - other_contact_vel_world;
+        
+        // Should be negative
+        double diverging_vel = vel_self_rel_to_other_at_contact.dot(other_face_normal);
+        //// How fast self is converging with other's face
+        //double converging_vel = -diverging_vel;
 
-        // To zero-momentum frame
-        Vector3d ZM_vel_self = vel_self_rel_to_other_at_contact * (mass / (mass + other->mass));
-        Vector3d ZM_vel_other = -vel_self_rel_to_other_at_contact * (other->mass / (mass + other->mass));
+        //// In frame centered on other's contact pt,
+        //double momentum_self = converging_vel * mass;
+        //// other's momentum is zero
+        //double total_momentum = momentum_self;
 
-        Vector3d ZM_momentum_self = ZM_vel_self * mass;
-        Vector3d ZM_momentum_other = ZM_vel_other * other->mass;
+        //// To zero-momentum frame
+        //double vC = total_momentum / (mass + other->mass);
+        //double ZM_vel_self = converging_vel - vC;
+        //double ZM_vel_other = 0 - vC;
 
-        impulse(self_contact_pt_body, -(1 + restitution) * ZM_momentum_self);
-        other->impulse(other_contact_pt_body, -(1 + restitution) * ZM_momentum_other);
+        auto T_world_body = rot.toRotationMatrix();
+        auto T_body_world = T_world_body.transpose();
+        auto T_world_body_B = other->rot.toRotationMatrix();
+        auto T_body_world_B = T_world_body_B.transpose();
+        
+        
+        //https://www.cs.utah.edu/~ladislav/kavan03rigid/kavan03rigid.pdf eq 28
+        Vector3d rA = T_body_world * self_contact_pt_body;
+        Vector3d rB = T_body_world_B * other_contact_pt_body;
+        Vector3d nB = other_face_normal;
+        auto IA = T_body_world * Inertia;
+        auto IB = T_body_world * other->Inertia;
 
+        double interim1 = (1.0 / mass) + (1.0 / other->mass) + 
+            nB.dot((IA.inverse() * (rA.cross(nB))).cross(rA)) +
+            nB.dot((IB.inverse() * (rB.cross(nB))).cross(rB));
+
+        double collision_impulse = (-1 - restitution) * diverging_vel / interim1;
+
+
+        impulse(self_contact_pt_body, (1 + restitution) * collision_impulse * other_face_normal);
+        other->impulse(other_contact_pt_body, (1 + restitution) * collision_impulse * (-other_face_normal));
     }
 
-    void collide_wall(Vector3d contact_pt_world, Vector3d normal_dir)
+    void collide_wall(Vector3d contact_pt_world, Vector3d other_face_normal, double dt)
     {
+        // Position of contact point in body coords
         Vector3d self_contact_pt_body = pt_world_to_body(contact_pt_world);
+        //Vector3d other_contact_pt_body = other->pt_world_to_body(contact_pt_world);
 
+        // Velocity of contact point in world coords
         Vector3d self_contact_vel_world = world_vel_at_body_pt(self_contact_pt_body);
+        Vector3d other_contact_vel_world = /*other->world_vel_at_body_pt(other_contact_pt_body)*/ {0,0,0};
 
-        Vector3d self_contact_normal_vel_world = self_contact_vel_world.dot(normal_dir) * normal_dir;
-        //Vector3d ZM_momentum_self = self_contact_vel_world * mass;
+        // Relative velocity between contact points
+        Vector3d vel_self_rel_to_other_at_contact = self_contact_vel_world - other_contact_vel_world;
 
-        Vector3d impulse_world = self_contact_normal_vel_world * mass;
+        // Should be negative
+        double diverging_vel = vel_self_rel_to_other_at_contact.dot(other_face_normal);
+        //// How fast self is converging with other's face
+        //double converging_vel = -diverging_vel;
 
-        impulse(self_contact_pt_body, -(1 + restitution) * impulse_world);
+        //// In frame centered on other's contact pt,
+        //double momentum_self = converging_vel * mass;
+        //// other's momentum is zero
+        //double total_momentum = momentum_self;
+
+        //// To zero-momentum frame
+        //double vC = total_momentum / (mass + 9999999999);
+        //double ZM_vel_self = converging_vel - vC;
+        //double ZM_vel_other = 0 - vC;
+
+        auto T_world_body = rot.toRotationMatrix();
+        auto T_body_world = T_world_body.transpose();
+        //auto T_world_body_B = other->rot.toRotationMatrix();
+        //auto T_body_world_B = T_world_body_B.transpose();
+
+        //https://www.cs.utah.edu/~ladislav/kavan03rigid/kavan03rigid.pdf eq 28
+        Vector3d rA = T_body_world * self_contact_pt_body;
+        //Vector3d rB = T_body_world_B * other_contact_pt_body;
+        Vector3d nB = other_face_normal;
+        auto IA = T_body_world * Inertia;
+        //auto IB = T_body_world * other->Inertia;
+
+        double interim1 = (1.0 / mass) + (0.0) +
+                          nB.dot((IA.inverse() * (rA.cross(nB))).cross(rA)) +
+                          0.0;
+
+        double collision_impulse = (-1 - restitution) * diverging_vel / interim1;
+
+        impulse(self_contact_pt_body, collision_impulse * other_face_normal);
+        //other->impulse(other_contact_pt_body, (1 + restitution) * collision_impulse * (-other_face_normal));
+
+
 
     }
     
@@ -571,10 +680,11 @@ public:
         vel += add_momentum_world / mass;
 
         auto T_world_body = rot.toRotationMatrix();
-        Vector3d offset_world = T_world_body.transpose() * offset_body;
+        auto T_body_world = T_world_body.transpose();
+        Vector3d offset_world = T_body_world * offset_body;
 
 
-        auto I_world = T_world_body.transpose() * Inertia;
+        auto I_world = T_body_world * Inertia;
 
         // torque = I a
         // r x f = I a
@@ -685,6 +795,23 @@ static const vector<tuple<int, int, int>> cube_triangles = {
     { 4, 7, 8 },
 };
 
+//https://gamedev.stackexchange.com/a/26022/128707
+bool IsIntersecting(Vector2d a1, Vector2d a2, Vector2d b1, Vector2d b2)
+{
+    double denominator = ((a2.x() - a1.x()) * (b2.y() - b1.y())) - ((a2.y() - a1.y()) * (b2.x() - b1.x()));
+    double numerator1 = ((a1.y() - b1.y()) * (b2.x() - b1.x())) - ((a1.x() - b1.x()) * (b2.y() - b1.y()));
+    double numerator2 = ((a1.y() - b1.y()) * (a2.x() - a1.x())) - ((a1.x() - b1.x()) * (a2.y() - a1.y()));
+
+    // Detect coincident lines (has a problem, read below)
+    if (denominator == 0)
+        return numerator1 == 0 && numerator2 == 0;
+
+    double r = numerator1 / denominator;
+    double s = numerator2 / denominator;
+
+    return (r >= 0 && r <= 1) && (s >= 0 && s <= 1);
+}
+
 class RigidCube : public RenderRigidCube
 {
 public:
@@ -752,25 +879,12 @@ public:
     }
 
     void step(double dt)
-    {
-        // For deferring actually moving until all verts' accels have been determined
-        vector<Vector3d> verts_accel = {
-            { 0, 0, 0 }, //1
-            { 0, 0, 0 }, //2
-            { 0, 0, 0 }, //3
-            { 0, 0, 0 }, //4
-            { 0, 0, 0 }, //5
-            { 0, 0, 0 }, //6
-            { 0, 0, 0 }, //7
-            { 0, 0, 0 }  //8
-        };               //m/s2
-
-        
-        VectorXd X(6);
-        X.head(3) = pos;
-        X.tail(3) = vel;
+    {   
+        VectorXd X_0(6);
+        X_0.head(3) = pos;
+        X_0.tail(3) = vel;
         // Accelerations
-        auto acc = get_accel_for_state(0, X);
+        auto acc = get_accel_for_state(0, X_0);
 
 
         //// 
@@ -821,11 +935,10 @@ public:
         //}
 
 
-        // Propagation
+        // Vertex-Face Collisions
         for (int i = 0; i < bodyframe_verts_pos.size(); i++)
         {
-            auto& pos = vert_world_pos(i);
-            //auto& vel = verts_vel[i];
+            auto vpos = vert_world_pos(i);
             
             //Collision with others
             for (auto other : *others)
@@ -833,30 +946,12 @@ public:
                 if (other == this)
                     continue;
 
-                //Vector3d avg_pos{ 0, 0, 0 };
-                //Vector3d avg_pos_other{ 0, 0, 0 };
-                //for (auto& vp : verts_pos)
-                //{
-                //    avg_pos += vp / verts_pos.size();
-                //}
-                //for (auto& vp : other->verts_pos)
-                //{
-                //    avg_pos_other += vp / verts_pos.size();
-                //}
+                double bounds_radius = sqrt(3.0 * cube_radius * cube_radius);
 
-                //auto r_avgs = avg_pos_other - avg_pos;
-                //if (r_avgs.norm() < 0.9)
-                //{
-                //    //We're inside another; depenetrate
-                //    /*for (auto& v_v : verts_vel)
-                //        {
-                //            v_v += dt * r_avgs.normalized() * 2.0;
-                //        }*/
-                //    for (auto& v_v : verts_vel)
-                //    {
-                //        v_v -= dt * r_avgs.normalized() * 20.0;
-                //    }
-                //}
+                Vector3d offset = pos - other->pos;
+
+                if (offset.norm() > bounds_radius * 2.2)
+                    continue;
 
                 for (const auto& tri : cube_triangles)
                 {
@@ -870,32 +965,12 @@ public:
                     double depth = 0.0;
                     Vector3d tri_normal;
 
-                    if (BehindTriangle(pos1, pos2, pos3, pos, depth, tri_normal))
+                    if (BehindTriangle(pos1, pos2, pos3, vpos, depth, tri_normal))
                     {
                         // Not too far behind that triangle
                         if (depth < 0.5)
                         {
-                            // Collide with that triangle
-                            // Velocity into collision is projection of this vert's velocity onto normal
-
-                            collide(other, pos);
-
-                            //auto collision_vel = vel.dot(tri_normal) * tri_normal;
-
-                            ////depenetrate
-                            //pos += depth * tri_normal * 0.5;
-
-                            //other->verts_pos[v1 - 1] -= depth * tri_normal * 0.5 / 3;
-                            //other->verts_pos[v2 - 1] -= depth * tri_normal * 0.5 / 3;
-                            //other->verts_pos[v3 - 1] -= depth * tri_normal * 0.5 / 3;
-
-                            //// neutralize vel
-                            //vel -= collision_vel;
-
-                            //// impart momentum on triangle
-                            //other->verts_vel[v1 - 1] += collision_vel / 3;
-                            //other->verts_vel[v2 - 1] += collision_vel / 3;
-                            //other->verts_vel[v3 - 1] += collision_vel / 3;
+                            collide(other, vpos, tri_normal);
                         }
                     }
                 }
@@ -904,86 +979,144 @@ public:
             // "Floor" collision
             // TODO can apply surface friction based on time during tick spent on surface
             double floor_height = -1;
-            if (pos.z() < floor_height)
+            if (vpos.z() < floor_height)
             {
-                collide_wall(pos, { 0, 0, 1 });
-
-                //// Fake friction //TODO add to collide_wall
-                //vel.x() *= 0.6;
-                //vel.y() *= 0.6;
+                collide_wall(vpos, { 0, 0, 1 }, dt);
+                double distance_lower = -(vpos.z() - floor_height);
+                translate({ 0, 0, distance_lower });
             }
-            if (pos.x() < -3.1)
+            if (vpos.x() < -3.1)
             {
-                collide_wall(pos, { 1, 0, 0 });
+                collide_wall(vpos, { 1, 0, 0 }, dt);
+                double distance_further_nX = -(vpos.x() + 3.1);
+                translate({ distance_further_nX, 0, 0 });
             }
-            if (pos.x() > 3.1)
+            if (vpos.x() > 3.1)
             {
-                collide_wall(pos, { -1, 0, 0 });
+                collide_wall(vpos, { -1, 0, 0 }, dt);
+                double distance_further_pX = (vpos.x() - 3.1);
+                translate({ -distance_further_pX, 0, 0 });
             }
-            if (pos.y() < -3.1)
+            if (vpos.y() < -3.1)
             {
-                collide_wall(pos, { 0, 1, 0 });
+                collide_wall(vpos, { 0, 1, 0 }, dt);
+                double distance_further_nY = -(vpos.y() + 3.1);
+                translate({ 0, distance_further_nY, 0  });
             }
-            if (pos.y() > 3.1)
+            if (vpos.y() > 3.1)
             {
-                collide_wall(pos, { 0, -1, 0 });
+                collide_wall(vpos, { 0, -1, 0 }, dt);
+                double distance_further_pY = (vpos.y() - 3.1);
+                translate({ 0, -distance_further_pY, 0 });
             }
+        }
 
-            if (prop_type == 1)
-            {
-                // Euler propagation
-                pos += vel * dt;
+        //// Edge-Edge Collisions
+        //for (const auto& tri : cube_triangles)
+        //{
+        //    auto v1_ = get<0>(tri);
+        //    auto v2_ = get<1>(tri);
+        //    auto v3_ = get<2>(tri);
+        //    const auto& pos1 = vert_world_pos(v1_ - 1);
+        //    const auto& pos2 = vert_world_pos(v2_ - 1);
+        //    const auto& pos3 = vert_world_pos(v3_ - 1);
+        //    //auto& vel = verts_vel[i];
 
-                const auto& acc = verts_accel[i];
+        //    auto n12 = (pos2 - pos1).normalized();
+        //    auto n23 = (pos3 - pos2).normalized();
+        //    auto n31 = (pos1 - pos3).normalized();
 
-                // Euler propagation
-                vel += acc * dt;
-            }
-            else //RK4
-            {
-                //// RK4 propagation
-                ////http://spiff.rit.edu/richmond/nbody/OrbitRungeKutta4.pdf
+        //    //Collision with others
+        //    for (auto other : *others)
+        //    {
+        //        if (other == this)
+        //            continue;
 
-                ////rdot = v
-                ////vdot = a
-                //auto k1v = get_accel_for_pos(i, pos);
-                //auto k2v = get_accel_for_pos(i, pos + k1v * dt/2);
-                //auto k3v = get_accel_for_pos(i, pos + k2v * dt/2);
-                //auto k4v = get_accel_for_pos(i, pos + k3v * dt);
+        //        double bounds_radius = sqrt(3.0 * cube_radius * cube_radius);
 
-                //auto k1r = vel;
-                //auto k2r = vel.norm() * k1v * dt / 2;
-                //auto k3r = vel.norm() * k2v * dt / 2;
-                //auto k4r = vel.norm() * k3v * dt;
+        //        Vector3d offset = pos - other->pos;
 
-                //vel = vel + (dt / 6) * (k1v + 2 * k2v + 2 * k3v + k4v);
-                //pos = pos + (dt / 6) * (k1r + 2 * k2r + 2 * k3r + k4r);
+        //        if (offset.norm() > bounds_radius * 2.2)
+        //            continue;
 
+        //        for (const auto& tri : cube_triangles)
+        //        {
+        //            auto v1 = get<0>(tri);
+        //            auto v2 = get<1>(tri);
+        //            auto v3 = get<2>(tri);
+        //            const auto& pos1_o = other->vert_world_pos(v1 - 1);
+        //            const auto& pos2_o = other->vert_world_pos(v2 - 1);
+        //            const auto& pos3_o = other->vert_world_pos(v3 - 1);
 
-                // RK4 propagation
-                //https://scicomp.stackexchange.com/a/19022
+        //            
+        //            auto n12_o = (pos2_o - pos1_o).normalized();
+        //            auto n23_o = (pos3_o - pos2_o).normalized();
+        //            auto n31_o = (pos1_o - pos3_o).normalized();
 
-                //rdot = v
-                //vdot = a
+        //            double depth = 0.0;
 
-                VectorXd X(6);
-                X.head(3) = pos;
-                X.tail(3) = vel;
+        //            {
+        //                int intersect_count = 0;
+        //                if (IsIntersecting({pos1[0], n12_o[0]))
+        //            }
+        //        }
+        //    }
+        //}
 
-                VectorXd k1(6);
-                VectorXd k2(6);
-                VectorXd k3(6);
-                VectorXd k4(6);
-                k1 << vel, get_accel_for_state(i, X);
-                k2 << vel, get_accel_for_state(i, X + k1 * dt / 2);
-                k3 << vel, get_accel_for_state(i, X + k2 * dt / 2);
-                k4 << vel, get_accel_for_state(i, X + k3 * dt);
+        // Propagation
+        if (prop_type == 1)
+        {
+            // Euler propagation
+            pos += vel * dt;
 
-                X = X + (dt / 6) * (k1 + 2 * k2 + 2 * k3 + k4);
+            // Euler propagation
+            vel += acc * dt;
 
-                pos = X.head(3);
-                vel = X.tail(3);
-            }
+            rot = PropagateQuat(rot, angvel, dt);
+        }
+        else //RK4
+        {
+            //// RK4 propagation
+            ////http://spiff.rit.edu/richmond/nbody/OrbitRungeKutta4.pdf
+
+            ////rdot = v
+            ////vdot = a
+            //auto k1v = get_accel_for_pos(i, pos);
+            //auto k2v = get_accel_for_pos(i, pos + k1v * dt/2);
+            //auto k3v = get_accel_for_pos(i, pos + k2v * dt/2);
+            //auto k4v = get_accel_for_pos(i, pos + k3v * dt);
+
+            //auto k1r = vel;
+            //auto k2r = vel.norm() * k1v * dt / 2;
+            //auto k3r = vel.norm() * k2v * dt / 2;
+            //auto k4r = vel.norm() * k3v * dt;
+
+            //vel = vel + (dt / 6) * (k1v + 2 * k2v + 2 * k3v + k4v);
+            //pos = pos + (dt / 6) * (k1r + 2 * k2r + 2 * k3r + k4r);
+
+            // RK4 propagation
+            //https://scicomp.stackexchange.com/a/19022
+
+            //rdot = v
+            //vdot = a
+
+            VectorXd X(6);
+            X.head(3) = pos;
+            X.tail(3) = vel;
+
+            VectorXd k1(6);
+            VectorXd k2(6);
+            VectorXd k3(6);
+            VectorXd k4(6);
+            k1 << vel, get_accel_for_state(0, X);
+            k2 << vel, get_accel_for_state(0, X + k1 * dt / 2);
+            k3 << vel, get_accel_for_state(0, X + k2 * dt / 2);
+            k4 << vel, get_accel_for_state(0, X + k3 * dt);
+
+            X = X + (dt / 6) * (k1 + 2 * k2 + 2 * k3 + k4);
+
+            pos = X.head(3);
+            vel = X.tail(3);
         }
         age += dt;
     }
@@ -1312,7 +1445,11 @@ C:
     for (int i = 0; i < ball_count; i++)
     {
         bodies.push_back(new RigidCube);
+        bodies.back()->init();
         bodies.back()->translate(Vector3d{ randomDouble(-1, 1), randomDouble(-1, 1), drop_height + i * 2.0 });
+        AngleAxisd rot_shift;
+        rot_shift = AngleAxisd(randomDouble(-1, 1), Vector3d{ randomDouble(-1, 1), randomDouble(-1, 1), randomDouble(-1, 1) });
+        bodies.back()->rotate(Quaterniond(rot_shift));
         bodies.back()->others = &bodies;
     }
 
@@ -1565,7 +1702,8 @@ C:
 
                 for (auto body : bodies)
                 {
-                    body->step(accumulated_dt);
+                    //body->step(accumulated_dt);
+                    body->step(0.005);
                 }
 
                 accumulated_dt = 0;
