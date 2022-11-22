@@ -551,22 +551,18 @@ public:
 
     }
 
-    void collide_wall(Vector3d contact_pt_world)
+    void collide_wall(Vector3d contact_pt_world, Vector3d normal_dir)
     {
         Vector3d self_contact_pt_body = pt_world_to_body(contact_pt_world);
 
         Vector3d self_contact_vel_world = world_vel_at_body_pt(self_contact_pt_body);
 
-        // Enforce linear consv of momentum
-        /*    Vector3d self_contact_momentum_world = self_contact_vel_world * mass;
-        Vector3d other_contact_momentum_world = other_contact_vel_world * other->mass;*/
+        Vector3d self_contact_normal_vel_world = self_contact_vel_world.dot(normal_dir) * normal_dir;
+        //Vector3d ZM_momentum_self = self_contact_vel_world * mass;
 
-        Vector3d vel_self_rel_to_wall_at_contact = self_contact_vel_world;
+        Vector3d impulse_world = self_contact_normal_vel_world * mass;
 
-        // To zero-momentum frame
-        Vector3d ZM_momentum_self = self_contact_vel_world * mass;
-
-        impulse(self_contact_pt_body, -(1 + restitution) * ZM_momentum_self);
+        impulse(self_contact_pt_body, -(1 + restitution) * impulse_world);
 
     }
     
@@ -910,53 +906,27 @@ public:
             double floor_height = -1;
             if (pos.z() < floor_height)
             {
-                pos.z() = floor_height;
-                if (vel.z() < 0)
-                    vel.z() = 0;
+                collide_wall(pos, { 0, 0, 1 });
 
-                // Fake friction
-                vel.x() *= 0.6;
-                vel.y() *= 0.6;
+                //// Fake friction //TODO add to collide_wall
+                //vel.x() *= 0.6;
+                //vel.y() *= 0.6;
             }
             if (pos.x() < -3.1)
             {
-                pos.x() = -3.1;
-                if (vel.x() < 0)
-                    vel.x() = 0;
-
-                // Fake friction
-                vel.z() *= 0.6;
-                vel.y() *= 0.6;
+                collide_wall(pos, { 1, 0, 0 });
             }
             if (pos.x() > 3.1)
             {
-                pos.x() = 3.1;
-                if (vel.x() > 0)
-                    vel.x() = 0;
-
-                // Fake friction
-                vel.z() *= 0.6;
-                vel.y() *= 0.6;
+                collide_wall(pos, { -1, 0, 0 });
             }
             if (pos.y() < -3.1)
             {
-                pos.y() = -3.1;
-                if (vel.y() < 0)
-                    vel.y() = 0;
-
-                // Fake friction
-                vel.z() *= 0.6;
-                vel.x() *= 0.6;
+                collide_wall(pos, { 0, 1, 0 });
             }
             if (pos.y() > 3.1)
             {
-                pos.y() = 3.1;
-                if (vel.y() > 0)
-                    vel.y() = 0;
-
-                // Fake friction
-                vel.z() *= 0.6;
-                vel.x() *= 0.6;
+                collide_wall(pos, { 0, -1, 0 });
             }
 
             if (prop_type == 1)
@@ -1329,7 +1299,7 @@ C:
 
     ///////////////////////////////////////////
 
-    vector<SoftCube*> bodies;
+    vector<RigidCube*> bodies;
 
     //for (int i = -(ball_count / 2); i < ball_count - (ball_count / 2); i++)
     //{
@@ -1341,8 +1311,8 @@ C:
     //Spawning
     for (int i = 0; i < ball_count; i++)
     {
-        bodies.push_back(new SoftCube);
-        bodies.back()->translate_verts(Vector3d{ randomDouble(-1, 1), randomDouble(-1, 1), drop_height + i * 2.0 });
+        bodies.push_back(new RigidCube);
+        bodies.back()->translate(Vector3d{ randomDouble(-1, 1), randomDouble(-1, 1), drop_height + i * 2.0 });
         bodies.back()->others = &bodies;
     }
 
@@ -1505,19 +1475,20 @@ C:
         for (auto body : bodies)
         {
             Vector3d model_center = { 0, 0, 0 };
-            for (const auto& vert_pos : body->verts_pos)
+            /*for (const auto& vert_pos : body->verts_pos)
             {
                 model_center += vert_pos / scale / body->verts_pos.size();
-            }
+            }*/
+            model_center = body->pos;
 
             for (const auto& tri : cube_triangles)
             {
                 auto v1 = get<0>(tri);
                 auto v2 = get<1>(tri);
                 auto v3 = get<2>(tri);
-                auto scaled_pos1 = body->verts_pos[v1-1] / scale;
-                auto scaled_pos2 = body->verts_pos[v2-1] / scale;
-                auto scaled_pos3 = body->verts_pos[v3-1] / scale;
+                auto scaled_pos1 = body->vert_world_pos(v1-1) / scale;
+                auto scaled_pos2 = body->vert_world_pos(v2-1) / scale;
+                auto scaled_pos3 = body->vert_world_pos(v3-1) / scale;
                 // Translate ball to its position and draw
                 model = glm::mat4(1.0f);
                 //model = glm::translate(model, glm::vec3(scaled_pos.x(), scaled_pos.y(), scaled_pos.z()));
