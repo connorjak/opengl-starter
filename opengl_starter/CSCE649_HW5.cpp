@@ -95,7 +95,7 @@ static float camZ = 0.0;
 
 // Options
 static int step_skip_amt = 1; //how many graphics steps per physics step
-static int ball_count = 1;
+static int ball_count = 20;
 static double timescale = 1.0;
 // 1 for Euler, 2 for RK4
 static int prop_type = 1;
@@ -993,30 +993,30 @@ public:
                 //vel.x() *= 0.6;
                 //vel.y() *= 0.6;
             }
-            /*if (vpos.x() < -3.1)
+            if (vpos.x() < -3.1)
             {
-                collide_wall(vpos, { 1, 0, 0 });
+                collide_wall(vpos, { 1, 0, 0 }, dt);
                 double distance_further_nX = -(vpos.x() + 3.1);
                 translate({ distance_further_nX, 0, 0 });
             }
             if (vpos.x() > 3.1)
             {
-                collide_wall(vpos, { -1, 0, 0 });
+                collide_wall(vpos, { -1, 0, 0 }, dt);
                 double distance_further_pX = (vpos.x() - 3.1);
                 translate({ -distance_further_pX, 0, 0 });
             }
             if (vpos.y() < -3.1)
             {
-                collide_wall(vpos, { 0, 1, 0 });
+                collide_wall(vpos, { 0, 1, 0 }, dt);
                 double distance_further_nY = -(vpos.y() + 3.1);
                 translate({ 0, distance_further_nY, 0  });
             }
             if (vpos.y() > 3.1)
             {
-                collide_wall(vpos, { 0, -1, 0 });
+                collide_wall(vpos, { 0, -1, 0 }, dt);
                 double distance_further_pY = (vpos.y() - 3.1);
                 translate({ 0, -distance_further_pY, 0 });
-            }*/
+            }
         }
 
         // Propagation
@@ -1237,7 +1237,6 @@ public:
 
 int main(int argc, char* argv[])
 {
-    ball_count = 5;
     if (argc >= 2) {
         string arg = string(argv[1]);
         ball_count = stoi(arg);
@@ -1404,6 +1403,7 @@ C:
         bodies.push_back(new RigidCube);
         bodies.back()->init();
         bodies.back()->translate(Vector3d{ randomDouble(-1, 1), randomDouble(-1, 1), drop_height + i * 2.0 });
+        bodies.back()->velocitate(Vector3d{ randomDouble(-10, 10), randomDouble(-10, 10), 0 });
         AngleAxisd rot_shift;
         rot_shift = AngleAxisd(randomDouble(-1, 1), Vector3d{ randomDouble(-1, 1), randomDouble(-1, 1), randomDouble(-1, 1) });
         bodies.back()->rotate(Quaterniond(rot_shift));
