@@ -1633,7 +1633,7 @@ C:
 
                 for (auto body : bodies)
                 {
-                    body->step(accumulated_dt);
+                    body->step(min(0.1, accumulated_dt));
                     //body->step(0.002);
                 }
 
