@@ -99,6 +99,7 @@ static int ball_count = 20;
 static double timescale = 1.0;
 // 1 for Euler, 2 for RK4
 static int prop_type = 1;
+static int shape = 1;
 static double drop_height = 2.0;
 
 static double springconst = 500.0; // N / m
@@ -491,16 +492,7 @@ static double cube_radius = 0.5;
 class RenderRigidCube
 {
 public:
-    vector<Vector3d> bodyframe_verts_pos = {
-        { cube_radius, -cube_radius, cube_radius }, //1
-        { cube_radius, cube_radius, cube_radius }, //2
-        { cube_radius, -cube_radius, -cube_radius }, //3
-        { cube_radius, cube_radius, -cube_radius }, //4
-        { -cube_radius, -cube_radius, cube_radius }, //5
-        { -cube_radius, cube_radius, cube_radius }, //6
-        { -cube_radius, -cube_radius, -cube_radius }, //7
-        { -cube_radius, cube_radius, -cube_radius }  //8
-    }; //m
+    vector<Vector3d> bodyframe_verts_pos; //m
     Vector3d pos = { 0, 0, 0 }; //m, world coords
     Vector3d vel = { 0, 0, 0 }; //m/s, world coords
     Quaterniond rot = Quaterniond(1, 0, 0, 0); //Passive Hamilton quat, world coords
@@ -510,13 +502,53 @@ public:
     double restitution = 0.2; 
     
 public:
-    void init()
+    void init(int shape_choice)
     {
-        double i11 = mass * pow(cube_radius * 2, 2) / 6.0;
+        switch (shape_choice)
+        {
+        case 1: 
+        {
+        
+            bodyframe_verts_pos = {
+                { cube_radius, -cube_radius, cube_radius },   //1
+                { cube_radius, cube_radius, cube_radius },    //2
+                { cube_radius, -cube_radius, -cube_radius },  //3
+                { cube_radius, cube_radius, -cube_radius },   //4
+                { -cube_radius, -cube_radius, cube_radius },  //5
+                { -cube_radius, cube_radius, cube_radius },   //6
+                { -cube_radius, -cube_radius, -cube_radius }, //7
+                { -cube_radius, cube_radius, -cube_radius }   //8
+            };                                                //m
 
-        Inertia << i11, 0, 0,
-            0, i11, 0,
-            0, 0, i11;
+            double i11 = mass * pow(cube_radius * 2, 2) / 6.0;
+
+            Inertia << i11, 0, 0,
+                0, i11, 0,
+                0, 0, i11;
+        }
+            break;
+
+        case 2:
+        {
+            bodyframe_verts_pos = {
+                { 2*cube_radius, -cube_radius, cube_radius },   //1
+                { 2*cube_radius, cube_radius, cube_radius },    //2
+                { 2*cube_radius, -cube_radius, -cube_radius },  //3
+                { 2 * cube_radius, cube_radius, -cube_radius },  //4
+                { -2*cube_radius, -cube_radius, cube_radius },  //5
+                { -2*cube_radius, cube_radius, cube_radius },   //6
+                { -2*cube_radius, -cube_radius, -cube_radius }, //7
+                { -2*cube_radius, cube_radius, -cube_radius }   //8
+            };                                                //m
+
+            double i11 = mass * pow(cube_radius * 2, 2) / 6.0;
+
+            Inertia << i11, 0, 0,
+                0, 2*i11, 0,
+                0, 0, 2*i11;
+        }
+            break;
+        }
     }
 
     Vector3d vert_world_pos(int idx)
@@ -618,8 +650,8 @@ public:
         double collision_impulse = (-1 - restitution) * diverging_vel / interim1;
 
 
-        impulse(self_contact_pt_body, (1 + restitution) * collision_impulse * other_face_normal);
-        other->impulse(other_contact_pt_body, (1 + restitution) * collision_impulse * (-other_face_normal));
+        impulse(self_contact_pt_body, collision_impulse * other_face_normal);
+        other->impulse(other_contact_pt_body, collision_impulse * (-other_face_normal));
     }
 
     void collide_wall(Vector3d contact_pt_world, Vector3d other_face_normal, double dt)
@@ -1264,7 +1296,7 @@ int main(int argc, char* argv[])
     if (argc >= 5)
     {
         string arg = string(argv[4]);
-        damperconst = stod(arg);
+        shape = stoi(arg);
     }
         
     glfwInit();
@@ -1410,8 +1442,13 @@ C:
     //Spawning
     for (int i = 0; i < ball_count; i++)
     {
+        int shape_ = 1;
+        if (randomBool())
+        {
+            shape_ = 2;
+        }
         bodies.push_back(new RigidCube);
-        bodies.back()->init();
+        bodies.back()->init(shape_);
         bodies.back()->translate(Vector3d{ randomDouble(-1, 1), randomDouble(-1, 1), drop_height + i * 2.0 });
         bodies.back()->velocitate(Vector3d{ randomDouble(-3000, 3000), randomDouble(-3000, 3000), 0 });
         AngleAxisd rot_shift;
@@ -1669,8 +1706,8 @@ C:
 
                 for (auto body : bodies)
                 {
-                    //body->step(accumulated_dt);
-                    body->step(0.005);
+                    body->step(accumulated_dt);
+                    //body->step(0.002);
                 }
 
                 accumulated_dt = 0;
