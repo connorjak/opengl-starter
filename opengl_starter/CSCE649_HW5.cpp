@@ -95,7 +95,7 @@ static float camZ = 0.0;
 
 // Options
 static int step_skip_amt = 1; //how many graphics steps per physics step
-static int ball_count = 5;
+static int ball_count = 1;
 static double timescale = 1.0;
 // 1 for Euler, 2 for RK4
 static int prop_type = 1;
@@ -795,23 +795,6 @@ static const vector<tuple<int, int, int>> cube_triangles = {
     { 4, 7, 8 },
 };
 
-//https://gamedev.stackexchange.com/a/26022/128707
-bool IsIntersecting(Vector2d a1, Vector2d a2, Vector2d b1, Vector2d b2)
-{
-    double denominator = ((a2.x() - a1.x()) * (b2.y() - b1.y())) - ((a2.y() - a1.y()) * (b2.x() - b1.x()));
-    double numerator1 = ((a1.y() - b1.y()) * (b2.x() - b1.x())) - ((a1.x() - b1.x()) * (b2.y() - b1.y()));
-    double numerator2 = ((a1.y() - b1.y()) * (a2.x() - a1.x())) - ((a1.x() - b1.x()) * (a2.y() - a1.y()));
-
-    // Detect coincident lines (has a problem, read below)
-    if (denominator == 0)
-        return numerator1 == 0 && numerator2 == 0;
-
-    double r = numerator1 / denominator;
-    double s = numerator2 / denominator;
-
-    return (r >= 0 && r <= 1) && (s >= 0 && s <= 1);
-}
-
 class RigidCube : public RenderRigidCube
 {
 public:
@@ -938,7 +921,8 @@ public:
         // Vertex-Face Collisions
         for (int i = 0; i < bodyframe_verts_pos.size(); i++)
         {
-            auto vpos = vert_world_pos(i);
+            auto& vpos = vert_world_pos(i);
+            //auto& vel = verts_vel[i];
             
             //Collision with others
             for (auto other : *others)
@@ -970,7 +954,27 @@ public:
                         // Not too far behind that triangle
                         if (depth < 0.5)
                         {
+                            // Collide with that triangle
+                            // Velocity into collision is projection of this vert's velocity onto normal
+
                             collide(other, vpos, tri_normal);
+
+                            //auto collision_vel = vel.dot(tri_normal) * tri_normal;
+
+                            ////depenetrate
+                            //vpos += depth * tri_normal * 0.5;
+
+                            //other->verts_pos[v1 - 1] -= depth * tri_normal * 0.5 / 3;
+                            //other->verts_pos[v2 - 1] -= depth * tri_normal * 0.5 / 3;
+                            //other->verts_pos[v3 - 1] -= depth * tri_normal * 0.5 / 3;
+
+                            //// neutralize vel
+                            //vel -= collision_vel;
+
+                            //// impart momentum on triangle
+                            //other->verts_vel[v1 - 1] += collision_vel / 3;
+                            //other->verts_vel[v2 - 1] += collision_vel / 3;
+                            //other->verts_vel[v3 - 1] += collision_vel / 3;
                         }
                     }
                 }
@@ -984,84 +988,36 @@ public:
                 collide_wall(vpos, { 0, 0, 1 }, dt);
                 double distance_lower = -(vpos.z() - floor_height);
                 translate({ 0, 0, distance_lower });
+
+                //// Fake friction //TODO add to collide_wall
+                //vel.x() *= 0.6;
+                //vel.y() *= 0.6;
             }
-            if (vpos.x() < -3.1)
+            /*if (vpos.x() < -3.1)
             {
-                collide_wall(vpos, { 1, 0, 0 }, dt);
+                collide_wall(vpos, { 1, 0, 0 });
                 double distance_further_nX = -(vpos.x() + 3.1);
                 translate({ distance_further_nX, 0, 0 });
             }
             if (vpos.x() > 3.1)
             {
-                collide_wall(vpos, { -1, 0, 0 }, dt);
+                collide_wall(vpos, { -1, 0, 0 });
                 double distance_further_pX = (vpos.x() - 3.1);
                 translate({ -distance_further_pX, 0, 0 });
             }
             if (vpos.y() < -3.1)
             {
-                collide_wall(vpos, { 0, 1, 0 }, dt);
+                collide_wall(vpos, { 0, 1, 0 });
                 double distance_further_nY = -(vpos.y() + 3.1);
                 translate({ 0, distance_further_nY, 0  });
             }
             if (vpos.y() > 3.1)
             {
-                collide_wall(vpos, { 0, -1, 0 }, dt);
+                collide_wall(vpos, { 0, -1, 0 });
                 double distance_further_pY = (vpos.y() - 3.1);
                 translate({ 0, -distance_further_pY, 0 });
-            }
+            }*/
         }
-
-        //// Edge-Edge Collisions
-        //for (const auto& tri : cube_triangles)
-        //{
-        //    auto v1_ = get<0>(tri);
-        //    auto v2_ = get<1>(tri);
-        //    auto v3_ = get<2>(tri);
-        //    const auto& pos1 = vert_world_pos(v1_ - 1);
-        //    const auto& pos2 = vert_world_pos(v2_ - 1);
-        //    const auto& pos3 = vert_world_pos(v3_ - 1);
-        //    //auto& vel = verts_vel[i];
-
-        //    auto n12 = (pos2 - pos1).normalized();
-        //    auto n23 = (pos3 - pos2).normalized();
-        //    auto n31 = (pos1 - pos3).normalized();
-
-        //    //Collision with others
-        //    for (auto other : *others)
-        //    {
-        //        if (other == this)
-        //            continue;
-
-        //        double bounds_radius = sqrt(3.0 * cube_radius * cube_radius);
-
-        //        Vector3d offset = pos - other->pos;
-
-        //        if (offset.norm() > bounds_radius * 2.2)
-        //            continue;
-
-        //        for (const auto& tri : cube_triangles)
-        //        {
-        //            auto v1 = get<0>(tri);
-        //            auto v2 = get<1>(tri);
-        //            auto v3 = get<2>(tri);
-        //            const auto& pos1_o = other->vert_world_pos(v1 - 1);
-        //            const auto& pos2_o = other->vert_world_pos(v2 - 1);
-        //            const auto& pos3_o = other->vert_world_pos(v3 - 1);
-
-        //            
-        //            auto n12_o = (pos2_o - pos1_o).normalized();
-        //            auto n23_o = (pos3_o - pos2_o).normalized();
-        //            auto n31_o = (pos1_o - pos3_o).normalized();
-
-        //            double depth = 0.0;
-
-        //            {
-        //                int intersect_count = 0;
-        //                if (IsIntersecting({pos1[0], n12_o[0]))
-        //            }
-        //        }
-        //    }
-        //}
 
         // Propagation
         if (prop_type == 1)
@@ -1281,6 +1237,7 @@ public:
 
 int main(int argc, char* argv[])
 {
+    ball_count = 5;
     if (argc >= 2) {
         string arg = string(argv[1]);
         ball_count = stoi(arg);
